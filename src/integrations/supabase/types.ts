@@ -178,6 +178,7 @@ export type Database = {
           id: string
           last_seen: string
           name: string
+          phone: string | null
           status: string
         }
         Insert: {
@@ -187,6 +188,7 @@ export type Database = {
           id: string
           last_seen?: string
           name: string
+          phone?: string | null
           status?: string
         }
         Update: {
@@ -196,6 +198,7 @@ export type Database = {
           id?: string
           last_seen?: string
           name?: string
+          phone?: string | null
           status?: string
         }
         Relationships: []
