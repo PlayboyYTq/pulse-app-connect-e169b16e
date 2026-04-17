@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, Link, useParams, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,6 +12,7 @@ import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
+import { playMessageSound } from "@/lib/sound";
 
 export const Route = createFileRoute("/chats")({
   beforeLoad: async () => {
