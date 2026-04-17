@@ -239,7 +239,7 @@ function ChatView() {
                   <span>{formatTime(m.created_at)}</span>
                   {mine && (
                     m.status === "read" ? (
-                      <CheckCheck className="size-3.5 text-sky-300 transition-colors" />
+                      <CheckCheck className="size-3.5 text-read transition-colors" />
                     ) : m.status === "delivered" ? (
                       <CheckCheck className="size-3.5 transition-colors" />
                     ) : (

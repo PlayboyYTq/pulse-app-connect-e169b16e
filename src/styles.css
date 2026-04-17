@@ -34,6 +34,7 @@
   --color-bubble-in: var(--bubble-in);
   --color-bubble-in-foreground: var(--bubble-in-foreground);
   --color-online: var(--online);
+  --color-read: var(--read);
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -63,6 +64,7 @@
   --bubble-in: oklch(0.96 0.008 250);
   --bubble-in-foreground: oklch(0.18 0.02 255);
   --online: oklch(0.7 0.18 150);
+  --read: oklch(0.85 0.14 220);
   --sidebar: oklch(0.985 0.005 250);
   --sidebar-foreground: oklch(0.18 0.02 255);
   --sidebar-primary: oklch(0.62 0.18 245);
@@ -103,6 +105,7 @@
   --bubble-in: oklch(0.28 0.025 260);
   --bubble-in-foreground: oklch(0.97 0.005 250);
   --online: oklch(0.72 0.18 150);
+  --read: oklch(0.82 0.15 220);
   --sidebar: oklch(0.18 0.022 260);
   --sidebar-foreground: oklch(0.97 0.005 250);
   --sidebar-primary: oklch(0.7 0.18 245);
