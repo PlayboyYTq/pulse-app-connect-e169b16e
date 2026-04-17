@@ -1,12 +1,11 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { toast } from "sonner";
 import { MessageCircle, ArrowLeft } from "lucide-react";
@@ -15,29 +14,32 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
-type Method = "email" | "phone";
 type Mode = "signin" | "signup";
+
+const DEFAULT_DIAL_CODE = "+91";
 
 function AuthPage() {
   const { session, loading } = useAuth();
   const navigate = useNavigate();
-  const [method, setMethod] = useState<Method>("email");
   const [mode, setMode] = useState<Mode>("signin");
 
-  // shared
+  // signup-only fields
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
-  const [phone, setPhone] = useState("");
-
-  // email
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // OTP
+  // shared phone (split into dial code + local digits)
+  const [dialCode, setDialCode] = useState(DEFAULT_DIAL_CODE);
+  const [localPhone, setLocalPhone] = useState("");
+
+  // OTP stage
   const [otpStage, setOtpStage] = useState(false);
   const [otp, setOtp] = useState("");
   const [resendIn, setResendIn] = useState(0);
   const [busy, setBusy] = useState(false);
+  // remember signup payload across the OTP step so we can attach email/password after verify
+  const pendingProfileRef = useRef<{ email: string; password: string } | null>(null);
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/chats" });
@@ -49,66 +51,46 @@ function AuthPage() {
     return () => clearInterval(t);
   }, [resendIn]);
 
-  const normalizePhone = (p: string) => p.replace(/[^\d+]/g, "");
-
-  // ---- EMAIL submit ----
-  const submitEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      if (mode === "signup") {
-        const cleanedPhone = normalizePhone(phone);
-        if (!cleanedPhone.startsWith("+") || cleanedPhone.length < 8) {
-          throw new Error("Enter phone in international format, e.g. +14155552671");
-        }
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/chats`,
-            data: { name, date_of_birth: dob || null, phone: cleanedPhone },
-          },
-        });
-        if (error) throw error;
-        toast.success("Account created — check your email to confirm.");
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        toast.success("Signed in");
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Authentication failed");
-    } finally {
-      setBusy(false);
-    }
+  const fullPhone = () => {
+    const code = dialCode.startsWith("+") ? dialCode : `+${dialCode}`;
+    const digits = localPhone.replace(/\D/g, "");
+    return `${code}${digits}`.replace(/[^\d+]/g, "");
   };
 
-  // ---- PHONE: send OTP ----
+  const validate = () => {
+    const phone = fullPhone();
+    if (!phone.startsWith("+") || phone.length < 8) {
+      throw new Error("Enter a valid phone number with country code");
+    }
+    if (mode === "signup") {
+      if (!name.trim()) throw new Error("Please enter your name");
+      if (!dob) throw new Error("Please enter your date of birth");
+      if (!email.trim() || !email.includes("@")) throw new Error("Please enter a valid email");
+      if (password.length < 6) throw new Error("Password must be at least 6 characters");
+    }
+    return phone;
+  };
+
   const sendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     try {
-      const cleaned = normalizePhone(phone);
-      if (!cleaned.startsWith("+") || cleaned.length < 8) {
-        throw new Error("Enter phone in international format, e.g. +14155552671");
-      }
-      if (mode === "signup" && !name.trim()) {
-        throw new Error("Please enter your name");
-      }
+      const phone = validate();
       const { error } = await supabase.auth.signInWithOtp({
-        phone: cleaned,
+        phone,
         options: {
-          // For signup, attach profile data; for signin, this is ignored on existing users
+          shouldCreateUser: mode === "signup",
           data:
             mode === "signup"
-              ? { name, date_of_birth: dob || null, phone: cleaned }
+              ? { name: name.trim(), date_of_birth: dob || null, phone, email: email.trim() }
               : undefined,
-          // shouldCreateUser true for signup, false for signin (so it errors if user not found)
-          shouldCreateUser: mode === "signup",
         },
       });
       if (error) throw error;
+      pendingProfileRef.current =
+        mode === "signup" ? { email: email.trim(), password } : null;
       setOtpStage(true);
+      setOtp("");
       setResendIn(60);
       toast.success("Code sent — check your messages");
     } catch (err) {
@@ -118,20 +100,33 @@ function AuthPage() {
     }
   };
 
-  // ---- PHONE: verify OTP ----
   const verifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (otp.length !== 6) return toast.error("Enter the 6-digit code");
     setBusy(true);
     try {
-      const cleaned = normalizePhone(phone);
-      const { error } = await supabase.auth.verifyOtp({
-        phone: cleaned,
-        token: otp,
-        type: "sms",
-      });
+      const phone = fullPhone();
+      const { error } = await supabase.auth.verifyOtp({ phone, token: otp, type: "sms" });
       if (error) throw error;
-      toast.success("Verified");
+
+      // After verification, attach email + password to the new account so the user
+      // also has an email-based recovery method on file.
+      const pending = pendingProfileRef.current;
+      if (pending) {
+        const { error: updErr } = await supabase.auth.updateUser({
+          email: pending.email,
+          password: pending.password,
+        });
+        if (updErr) {
+          // Don't block sign-in if this fails (e.g. email already used) — surface a notice.
+          toast.warning(`Signed in, but couldn't save email/password: ${updErr.message}`);
+        } else {
+          toast.success("Account created — verify your email when convenient");
+        }
+        pendingProfileRef.current = null;
+      } else {
+        toast.success("Signed in");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Invalid or expired code");
     } finally {
@@ -167,11 +162,11 @@ function AuthPage() {
               </button>
               <h1 className="text-2xl font-semibold tracking-tight">Enter verification code</h1>
               <p className="text-sm text-muted-foreground mt-1">
-                We sent a 6-digit code to <span className="text-foreground font-medium">{phone}</span>
+                We sent a 6-digit code to <span className="text-foreground font-medium">{fullPhone()}</span>
               </p>
               <form onSubmit={verifyOtp} className="mt-6 space-y-5">
                 <div className="flex justify-center">
-                  <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                  <InputOTP maxLength={6} value={otp} onChange={setOtp} inputMode="numeric">
                     <InputOTPGroup>
                       {[0, 1, 2, 3, 4, 5].map((i) => (
                         <InputOTPSlot key={i} index={i} className="h-12 w-12 text-lg" />
@@ -203,89 +198,98 @@ function AuthPage() {
                 {mode === "signin" ? "Welcome back" : "Create your account"}
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                {mode === "signin" ? "Sign in to continue chatting" : "Join the conversation in seconds"}
+                {mode === "signin"
+                  ? "Sign in with a one-time code"
+                  : "Quick signup — we'll text you a code to verify"}
               </p>
 
-              <Tabs value={method} onValueChange={(v) => setMethod(v as Method)} className="mt-5">
-                <TabsList className="grid grid-cols-2 w-full">
-                  <TabsTrigger value="email">Email</TabsTrigger>
-                  <TabsTrigger value="phone">Phone</TabsTrigger>
-                </TabsList>
+              <form onSubmit={sendOtp} className="mt-5 space-y-4">
+                {mode === "signup" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Full name</Label>
+                      <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" autoComplete="name" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="dob">Date of birth</Label>
+                      <Input
+                        id="dob"
+                        type="date"
+                        required
+                        value={dob}
+                        onChange={(e) => setDob(e.target.value)}
+                        max={new Date().toISOString().slice(0, 10)}
+                        autoComplete="bday"
+                      />
+                    </div>
+                  </>
+                )}
 
-                {/* EMAIL */}
-                <TabsContent value="email">
-                  <form onSubmit={submitEmail} className="mt-4 space-y-4">
-                    {mode === "signup" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="name">Name</Label>
-                          <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="dob">Date of birth</Label>
-                          <Input id="dob" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="phone-e">Phone number</Label>
-                          <Input
-                            id="phone-e"
-                            type="tel"
-                            required
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            placeholder="+14155552671"
-                          />
-                          <p className="text-xs text-muted-foreground">Use international format with country code.</p>
-                        </div>
-                      </>
-                    )}
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone number</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="dial"
+                      inputMode="tel"
+                      value={dialCode}
+                      onChange={(e) => {
+                        const v = e.target.value.replace(/[^\d+]/g, "");
+                        setDialCode(v.startsWith("+") ? v : `+${v}`);
+                      }}
+                      className="w-20 text-center font-medium"
+                      aria-label="Country code"
+                    />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      required
+                      value={localPhone}
+                      onChange={(e) => setLocalPhone(e.target.value.replace(/\D/g, ""))}
+                      placeholder="98765 43210"
+                      autoComplete="tel-national"
+                      className="flex-1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Default is India (+91). Edit the prefix for other countries.
+                  </p>
+                </div>
+
+                {mode === "signup" && (
+                  <>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+                      <Input
+                        id="email"
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        autoComplete="email"
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="password">Password</Label>
-                      <Input id="password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
-                    </div>
-                    <Button type="submit" className="w-full h-11 rounded-xl" disabled={busy}>
-                      {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
-                    </Button>
-                  </form>
-                </TabsContent>
-
-                {/* PHONE */}
-                <TabsContent value="phone">
-                  <form onSubmit={sendOtp} className="mt-4 space-y-4">
-                    {mode === "signup" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="name-p">Name</Label>
-                          <Input id="name-p" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="dob-p">Date of birth</Label>
-                          <Input id="dob-p" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
-                        </div>
-                      </>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="phone-p">Phone number</Label>
                       <Input
-                        id="phone-p"
-                        type="tel"
+                        id="password"
+                        type="password"
                         required
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        placeholder="+14155552671"
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="At least 6 characters"
+                        autoComplete="new-password"
                       />
-                      <p className="text-xs text-muted-foreground">We'll text you a 6-digit code.</p>
                     </div>
-                    <Button type="submit" className="w-full h-11 rounded-xl" disabled={busy}>
-                      {busy ? "Sending…" : "Send verification code"}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
+                  </>
+                )}
+
+                <Button type="submit" className="w-full h-11 rounded-xl" disabled={busy}>
+                  {busy ? "Sending…" : mode === "signin" ? "Send code" : "Create account & send code"}
+                </Button>
+              </form>
 
               <button
                 type="button"
