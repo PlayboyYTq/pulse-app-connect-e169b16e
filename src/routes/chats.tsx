@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect, Link, useParams, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,6 +12,7 @@ import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
+import { playMessageSound } from "@/lib/sound";
 
 export const Route = createFileRoute("/chats")({
   beforeLoad: async () => {
@@ -46,6 +47,11 @@ function ChatsLayout() {
   const [search, setSearch] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [unread, setUnread] = useState<Record<string, number>>({});
+  const activeConvRef = useRef<string | undefined>(undefined);
+  activeConvRef.current = params.conversationId;
+  const userIdRef = useRef<string | undefined>(undefined);
+  userIdRef.current = user?.id;
 
   const loadChats = async () => {
     if (!user) return;
@@ -86,6 +92,21 @@ function ChatsLayout() {
     );
   };
 
+  const loadUnread = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("messages")
+      .select("conversation_id")
+      .neq("sender_id", user.id)
+      .neq("status", "read")
+      .limit(1000);
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach((m: { conversation_id: string }) => {
+      counts[m.conversation_id] = (counts[m.conversation_id] ?? 0) + 1;
+    });
+    setUnread(counts);
+  };
+
   const loadPendingCount = async () => {
     if (!user) return;
     const { count } = await supabase
@@ -98,12 +119,46 @@ function ChatsLayout() {
 
   useEffect(() => {
     loadChats();
+    loadUnread();
     loadPendingCount();
     if (!user) return;
     const channel = supabase
       .channel("chats-list")
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => loadChats())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => loadChats())
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        async (payload) => {
+          const m = payload.new as { id: string; conversation_id: string; sender_id: string; content: string };
+          loadChats();
+          if (m.sender_id === userIdRef.current) return;
+          // RLS already filters server-side; double-check client-side that this convo is mine.
+          const { data: isMine } = await supabase
+            .from("conversations")
+            .select("id")
+            .eq("id", m.conversation_id)
+            .maybeSingle();
+          if (!isMine) return;
+          if (activeConvRef.current === m.conversation_id) return;
+          setUnread((prev) => ({ ...prev, [m.conversation_id]: (prev[m.conversation_id] ?? 0) + 1 }));
+          playMessageSound();
+          const { data: sender } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", m.sender_id)
+            .maybeSingle();
+          toast(sender?.name ?? "New message", {
+            description: m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content,
+            action: {
+              label: "Open",
+              onClick: () => navigate({ to: "/chats/$conversationId", params: { conversationId: m.conversation_id } }),
+            },
+          });
+        }
+      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, () => {
+        loadUnread();
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => {
         loadPendingCount();
@@ -115,8 +170,20 @@ function ChatsLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Clear unread for the currently open conversation
+  useEffect(() => {
+    if (!params.conversationId) return;
+    setUnread((prev) => {
+      if (!prev[params.conversationId!]) return prev;
+      const next = { ...prev };
+      delete next[params.conversationId!];
+      return next;
+    });
+  }, [params.conversationId]);
+
   const filtered = chats.filter((c) => c.other.name.toLowerCase().includes(search.toLowerCase()));
   const showSidebarOnMobile = !params.conversationId;
+  const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
 
   return (
     <div className="h-screen flex bg-background">
@@ -169,7 +236,7 @@ function ChatsLayout() {
         {/* Top tabs */}
         <div className="px-3 pt-3">
           <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60">
-            <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" />
+            <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" badge={totalUnread} />
             <TabBtn active={tab === "friends"} onClick={() => setTab("friends")} icon={<Users className="size-4" />} label="Friends" badge={pendingRequests} />
           </div>
         </div>
@@ -191,36 +258,46 @@ function ChatsLayout() {
                   <p className="text-sm text-muted-foreground">No conversations yet.<br />Add a friend, then tap + to start.</p>
                 </div>
               )}
-              {filtered.map((c) => (
-                <Link
-                  key={c.conversationId}
-                  to="/chats/$conversationId"
-                  params={{ conversationId: c.conversationId }}
-                  className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
-                  activeProps={{ className: "bg-accent" }}
-                >
-                  <div className="relative">
-                    <Avatar className="size-12">
-                      <AvatarImage src={c.other.avatar_url ?? undefined} />
-                      <AvatarFallback>{initials(c.other.name)}</AvatarFallback>
-                    </Avatar>
-                    {c.other.status === "online" && (
-                      <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium truncate">{c.other.name}</span>
-                      <span className="text-[11px] text-muted-foreground shrink-0">
-                        {formatChatListTime(c.lastMessageAt)}
-                      </span>
+              {filtered.map((c) => {
+                const u = unread[c.conversationId] ?? 0;
+                return (
+                  <Link
+                    key={c.conversationId}
+                    to="/chats/$conversationId"
+                    params={{ conversationId: c.conversationId }}
+                    className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
+                    activeProps={{ className: "bg-accent" }}
+                  >
+                    <div className="relative">
+                      <Avatar className="size-12">
+                        <AvatarImage src={c.other.avatar_url ?? undefined} />
+                        <AvatarFallback>{initials(c.other.name)}</AvatarFallback>
+                      </Avatar>
+                      {c.other.status === "online" && (
+                        <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {c.lastMessage?.content ?? "Say hi 👋"}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className={cn("truncate", u > 0 ? "font-semibold" : "font-medium")}>{c.other.name}</span>
+                        <span className={cn("text-[11px] shrink-0", u > 0 ? "text-primary font-medium" : "text-muted-foreground")}>
+                          {formatChatListTime(c.lastMessageAt)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn("text-sm truncate", u > 0 ? "text-foreground" : "text-muted-foreground")}>
+                          {c.lastMessage?.content ?? "Say hi 👋"}
+                        </p>
+                        {u > 0 && (
+                          <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold grid place-items-center animate-scale-in">
+                            {u > 99 ? "99+" : u}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </>
         ) : (
