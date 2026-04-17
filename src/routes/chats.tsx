@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatChatListTime, initials } from "@/lib/format";
-import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft } from "lucide-react";
+import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { FriendsPanel } from "@/components/FriendsPanel";
 
 export const Route = createFileRoute("/chats")({
   beforeLoad: async () => {
@@ -40,9 +41,11 @@ function ChatsLayout() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
+  const [tab, setTab] = useState<"chats" | "friends">("chats");
   const [chats, setChats] = useState<ChatItem[]>([]);
   const [search, setSearch] = useState("");
   const [newOpen, setNewOpen] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(0);
 
   const loadChats = async () => {
     if (!user) return;
@@ -53,18 +56,9 @@ function ChatsLayout() {
       .order("last_message_at", { ascending: false });
     if (!convs) return;
     const otherIds = convs.map((c: ConversationRow) => (c.user_a === user.id ? c.user_b : c.user_a));
-    const [{ data: profiles }, { data: lastMsgs }] = await Promise.all([
-      otherIds.length
-        ? supabase.from("profiles").select("id,name,avatar_url,status").in("id", otherIds)
-        : Promise.resolve({ data: [] as Profile[] }),
-      convs.length
-        ? supabase
-            .from("messages")
-            .select("conversation_id,content,created_at,sender_id")
-            .in("id", []) // placeholder
-        : Promise.resolve({ data: [] }),
-    ]);
-    // fetch last message per conversation in parallel
+    const { data: profiles } = otherIds.length
+      ? await supabase.from("profiles").select("id,name,avatar_url,status").in("id", otherIds)
+      : { data: [] as Profile[] };
     const lastByConv = new Map<string, { content: string; created_at: string; sender_id: string }>();
     await Promise.all(
       convs.map(async (c: ConversationRow) => {
@@ -78,7 +72,6 @@ function ChatsLayout() {
         if (m) lastByConv.set(c.id, m as { content: string; created_at: string; sender_id: string });
       })
     );
-    void lastMsgs;
     const profileMap = new Map((profiles ?? []).map((p: Profile) => [p.id, p]));
     setChats(
       convs.map((c: ConversationRow) => {
@@ -93,14 +86,28 @@ function ChatsLayout() {
     );
   };
 
+  const loadPendingCount = async () => {
+    if (!user) return;
+    const { count } = await supabase
+      .from("friend_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("receiver_id", user.id)
+      .eq("status", "pending");
+    setPendingRequests(count ?? 0);
+  };
+
   useEffect(() => {
     loadChats();
+    loadPendingCount();
     if (!user) return;
     const channel = supabase
       .channel("chats-list")
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => loadChats())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => loadChats())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => loadChats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => {
+        loadPendingCount();
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -113,7 +120,6 @@ function ChatsLayout() {
 
   return (
     <div className="h-screen flex bg-background">
-      {/* Sidebar */}
       <aside
         className={cn(
           "w-full md:w-[360px] md:border-r border-border flex flex-col bg-sidebar",
@@ -128,7 +134,16 @@ function ChatsLayout() {
             <span className="font-semibold tracking-tight">Pulse</span>
           </div>
           <div className="flex items-center gap-1">
-            <NewChatDialog open={newOpen} onOpenChange={setNewOpen} onCreated={(id) => { setNewOpen(false); navigate({ to: "/chats/$conversationId", params: { conversationId: id } }); }} />
+            {tab === "chats" && (
+              <NewChatDialog
+                open={newOpen}
+                onOpenChange={setNewOpen}
+                onCreated={(id) => {
+                  setNewOpen(false);
+                  navigate({ to: "/chats/$conversationId", params: { conversationId: id } });
+                }}
+              />
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full">
@@ -150,55 +165,69 @@ function ChatsLayout() {
             </DropdownMenu>
           </div>
         </header>
-        <div className="px-3 py-2">
-          <div className="relative">
-            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chats" className="pl-9 h-10 rounded-xl bg-muted/60 border-transparent focus-visible:bg-background" />
+
+        {/* Top tabs */}
+        <div className="px-3 pt-3">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60">
+            <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" />
+            <TabBtn active={tab === "friends"} onClick={() => setTab("friends")} icon={<Users className="size-4" />} label="Friends" badge={pendingRequests} />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {filtered.length === 0 && (
-            <div className="px-6 py-16 text-center">
-              <div className="mx-auto size-12 rounded-2xl bg-accent grid place-items-center mb-3">
-                <MessageCircle className="size-5 text-accent-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground">No conversations yet.<br />Tap + to start one.</p>
-            </div>
-          )}
-          {filtered.map((c) => (
-            <Link
-              key={c.conversationId}
-              to="/chats/$conversationId"
-              params={{ conversationId: c.conversationId }}
-              className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
-              activeProps={{ className: "bg-accent" }}
-            >
+
+        {tab === "chats" ? (
+          <>
+            <div className="px-3 py-2">
               <div className="relative">
-                <Avatar className="size-12">
-                  <AvatarImage src={c.other.avatar_url ?? undefined} />
-                  <AvatarFallback>{initials(c.other.name)}</AvatarFallback>
-                </Avatar>
-                {c.other.status === "online" && (
-                  <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
-                )}
+                <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chats" className="pl-9 h-10 rounded-xl bg-muted/60 border-transparent focus-visible:bg-background" />
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium truncate">{c.other.name}</span>
-                  <span className="text-[11px] text-muted-foreground shrink-0">
-                    {formatChatListTime(c.lastMessageAt)}
-                  </span>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {filtered.length === 0 && (
+                <div className="px-6 py-16 text-center">
+                  <div className="mx-auto size-12 rounded-2xl bg-accent grid place-items-center mb-3">
+                    <MessageCircle className="size-5 text-accent-foreground" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">No conversations yet.<br />Add a friend, then tap + to start.</p>
                 </div>
-                <p className="text-sm text-muted-foreground truncate">
-                  {c.lastMessage?.content ?? "Say hi 👋"}
-                </p>
-              </div>
-            </Link>
-          ))}
-        </div>
+              )}
+              {filtered.map((c) => (
+                <Link
+                  key={c.conversationId}
+                  to="/chats/$conversationId"
+                  params={{ conversationId: c.conversationId }}
+                  className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
+                  activeProps={{ className: "bg-accent" }}
+                >
+                  <div className="relative">
+                    <Avatar className="size-12">
+                      <AvatarImage src={c.other.avatar_url ?? undefined} />
+                      <AvatarFallback>{initials(c.other.name)}</AvatarFallback>
+                    </Avatar>
+                    {c.other.status === "online" && (
+                      <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="font-medium truncate">{c.other.name}</span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">
+                        {formatChatListTime(c.lastMessageAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {c.lastMessage?.content ?? "Say hi 👋"}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
+        ) : (
+          <FriendsPanel />
+        )}
       </aside>
 
-      {/* Main */}
       <main className={cn("flex-1 flex flex-col", showSidebarOnMobile ? "hidden md:flex" : "flex")}>
         {params.conversationId ? (
           <Outlet />
@@ -218,31 +247,49 @@ function ChatsLayout() {
   );
 }
 
+function TabBtn({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "h-9 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5",
+        active ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {icon}
+      {label}
+      {badge ? (
+        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">{badge}</span>
+      ) : null}
+    </button>
+  );
+}
+
 function NewChatDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (b: boolean) => void; onCreated: (id: string) => void }) {
   const { user } = useAuth();
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<Profile[]>([]);
+  const [friends, setFriends] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!open) { setQ(""); setResults([]); return; }
-  }, [open]);
-
-  useEffect(() => {
-    if (!q.trim() || !user) { setResults([]); return; }
-    const t = setTimeout(async () => {
-      setLoading(true);
-      const { data } = await supabase
-        .from("profiles")
-        .select("id,name,avatar_url,status")
-        .ilike("name", `%${q.trim()}%`)
-        .neq("id", user.id)
-        .limit(20);
-      setResults((data ?? []) as Profile[]);
+    if (!open || !user) return;
+    setLoading(true);
+    (async () => {
+      const { data: fs } = await supabase
+        .from("friendships")
+        .select("*")
+        .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+      const ids = (fs ?? []).map((f) => (f.user_a === user.id ? f.user_b : f.user_a));
+      if (ids.length) {
+        const { data: profs } = await supabase.from("profiles").select("id,name,avatar_url,status").in("id", ids);
+        setFriends((profs ?? []) as Profile[]);
+      } else {
+        setFriends([]);
+      }
       setLoading(false);
-    }, 200);
-    return () => clearTimeout(t);
-  }, [q, user]);
+    })();
+    return () => { setQ(""); };
+  }, [open, user]);
 
   const startChat = async (other: Profile) => {
     if (!user) return;
@@ -263,6 +310,8 @@ function NewChatDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpe
     onCreated(data.id);
   };
 
+  const filtered = friends.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
@@ -274,14 +323,19 @@ function NewChatDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpe
         </DialogHeader>
         <div className="relative">
           <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people by name" className="pl-9 h-10 rounded-xl" />
+          <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your friends" className="pl-9 h-10 rounded-xl" />
         </div>
         <div className="max-h-72 overflow-y-auto -mx-2">
-          {loading && <p className="text-sm text-muted-foreground px-4 py-3">Searching…</p>}
-          {!loading && q && results.length === 0 && (
-            <p className="text-sm text-muted-foreground px-4 py-3">No users found.</p>
+          {loading && <p className="text-sm text-muted-foreground px-4 py-3">Loading…</p>}
+          {!loading && friends.length === 0 && (
+            <p className="text-sm text-muted-foreground px-4 py-6 text-center">
+              You don't have any friends yet. Open the Friends tab to add some.
+            </p>
           )}
-          {results.map((p) => (
+          {!loading && friends.length > 0 && filtered.length === 0 && (
+            <p className="text-sm text-muted-foreground px-4 py-3">No friend matches "{q}".</p>
+          )}
+          {filtered.map((p) => (
             <button
               key={p.id}
               onClick={() => startChat(p)}
@@ -303,7 +357,6 @@ function NewChatDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpe
   );
 }
 
-// Re-export a back button for the chat detail to use
 export function MobileBack() {
   const navigate = useNavigate();
   return (
