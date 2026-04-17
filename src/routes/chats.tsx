@@ -47,6 +47,11 @@ function ChatsLayout() {
   const [search, setSearch] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
+  const [unread, setUnread] = useState<Record<string, number>>({});
+  const activeConvRef = useRef<string | undefined>(undefined);
+  activeConvRef.current = params.conversationId;
+  const userIdRef = useRef<string | undefined>(undefined);
+  userIdRef.current = user?.id;
 
   const loadChats = async () => {
     if (!user) return;
@@ -87,6 +92,21 @@ function ChatsLayout() {
     );
   };
 
+  const loadUnread = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("messages")
+      .select("conversation_id")
+      .neq("sender_id", user.id)
+      .neq("status", "read")
+      .limit(1000);
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach((m: { conversation_id: string }) => {
+      counts[m.conversation_id] = (counts[m.conversation_id] ?? 0) + 1;
+    });
+    setUnread(counts);
+  };
+
   const loadPendingCount = async () => {
     if (!user) return;
     const { count } = await supabase
@@ -99,12 +119,46 @@ function ChatsLayout() {
 
   useEffect(() => {
     loadChats();
+    loadUnread();
     loadPendingCount();
     if (!user) return;
     const channel = supabase
       .channel("chats-list")
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => loadChats())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => loadChats())
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        async (payload) => {
+          const m = payload.new as { id: string; conversation_id: string; sender_id: string; content: string };
+          loadChats();
+          if (m.sender_id === userIdRef.current) return;
+          // RLS already filters server-side; double-check client-side that this convo is mine.
+          const { data: isMine } = await supabase
+            .from("conversations")
+            .select("id")
+            .eq("id", m.conversation_id)
+            .maybeSingle();
+          if (!isMine) return;
+          if (activeConvRef.current === m.conversation_id) return;
+          setUnread((prev) => ({ ...prev, [m.conversation_id]: (prev[m.conversation_id] ?? 0) + 1 }));
+          playMessageSound();
+          const { data: sender } = await supabase
+            .from("profiles")
+            .select("name")
+            .eq("id", m.sender_id)
+            .maybeSingle();
+          toast(sender?.name ?? "New message", {
+            description: m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content,
+            action: {
+              label: "Open",
+              onClick: () => navigate({ to: "/chats/$conversationId", params: { conversationId: m.conversation_id } }),
+            },
+          });
+        }
+      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, () => {
+        loadUnread();
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => {
         loadPendingCount();
@@ -116,8 +170,20 @@ function ChatsLayout() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Clear unread for the currently open conversation
+  useEffect(() => {
+    if (!params.conversationId) return;
+    setUnread((prev) => {
+      if (!prev[params.conversationId!]) return prev;
+      const next = { ...prev };
+      delete next[params.conversationId!];
+      return next;
+    });
+  }, [params.conversationId]);
+
   const filtered = chats.filter((c) => c.other.name.toLowerCase().includes(search.toLowerCase()));
   const showSidebarOnMobile = !params.conversationId;
+  const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
 
   return (
     <div className="h-screen flex bg-background">
