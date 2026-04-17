@@ -170,7 +170,7 @@ function ChatsLayout() {
         {/* Top tabs */}
         <div className="px-3 pt-3">
           <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60">
-            <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" />
+            <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" badge={totalUnread} />
             <TabBtn active={tab === "friends"} onClick={() => setTab("friends")} icon={<Users className="size-4" />} label="Friends" badge={pendingRequests} />
           </div>
         </div>
@@ -192,36 +192,46 @@ function ChatsLayout() {
                   <p className="text-sm text-muted-foreground">No conversations yet.<br />Add a friend, then tap + to start.</p>
                 </div>
               )}
-              {filtered.map((c) => (
-                <Link
-                  key={c.conversationId}
-                  to="/chats/$conversationId"
-                  params={{ conversationId: c.conversationId }}
-                  className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
-                  activeProps={{ className: "bg-accent" }}
-                >
-                  <div className="relative">
-                    <Avatar className="size-12">
-                      <AvatarImage src={c.other.avatar_url ?? undefined} />
-                      <AvatarFallback>{initials(c.other.name)}</AvatarFallback>
-                    </Avatar>
-                    {c.other.status === "online" && (
-                      <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="font-medium truncate">{c.other.name}</span>
-                      <span className="text-[11px] text-muted-foreground shrink-0">
-                        {formatChatListTime(c.lastMessageAt)}
-                      </span>
+              {filtered.map((c) => {
+                const u = unread[c.conversationId] ?? 0;
+                return (
+                  <Link
+                    key={c.conversationId}
+                    to="/chats/$conversationId"
+                    params={{ conversationId: c.conversationId }}
+                    className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
+                    activeProps={{ className: "bg-accent" }}
+                  >
+                    <div className="relative">
+                      <Avatar className="size-12">
+                        <AvatarImage src={c.other.avatar_url ?? undefined} />
+                        <AvatarFallback>{initials(c.other.name)}</AvatarFallback>
+                      </Avatar>
+                      {c.other.status === "online" && (
+                        <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {c.lastMessage?.content ?? "Say hi 👋"}
-                    </p>
-                  </div>
-                </Link>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className={cn("truncate", u > 0 ? "font-semibold" : "font-medium")}>{c.other.name}</span>
+                        <span className={cn("text-[11px] shrink-0", u > 0 ? "text-primary font-medium" : "text-muted-foreground")}>
+                          {formatChatListTime(c.lastMessageAt)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={cn("text-sm truncate", u > 0 ? "text-foreground" : "text-muted-foreground")}>
+                          {c.lastMessage?.content ?? "Say hi 👋"}
+                        </p>
+                        {u > 0 && (
+                          <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold grid place-items-center animate-scale-in">
+                            {u > 99 ? "99+" : u}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </>
         ) : (
