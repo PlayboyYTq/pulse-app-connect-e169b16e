@@ -108,7 +108,7 @@ type PushPayload = {
   data?: Record<string, unknown>;
   requireInteraction?: boolean;
   silent?: boolean;
-  actions?: NotificationAction[];
+  actions?: Array<{ action: string; title: string; icon?: string }>;
 };
 
 self.addEventListener("push", (event: PushEvent) => {
