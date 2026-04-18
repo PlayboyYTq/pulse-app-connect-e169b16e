@@ -281,6 +281,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   // --- Incoming ---
   const acceptCall = useCallback(async () => {
     if (!user || !state.peer || !state.callId || !incomingOfferRef.current) return;
+    closeIncomingNotif();
     const { sdp, mode } = incomingOfferRef.current;
     setState((s) => ({ ...s, phase: "connecting" }));
     try {
