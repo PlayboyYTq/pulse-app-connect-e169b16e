@@ -1,9 +1,11 @@
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
 import { CallProvider } from "@/lib/calls";
 import { CallScreen } from "@/components/CallScreen";
 import { Toaster } from "@/components/ui/sonner";
+import { registerServiceWorker } from "@/lib/registerSW";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -35,7 +37,7 @@ export const Route = createRootRoute({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" },
     ],
-    scripts: [{ src: "/registerSW.js", defer: true }],
+    scripts: [],
   }),
   shellComponent: RootShell,
   component: RootComponent,
@@ -54,6 +56,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  useEffect(() => {
+    registerServiceWorker();
+  }, []);
   return (
     <AuthProvider>
       <CallProvider>
