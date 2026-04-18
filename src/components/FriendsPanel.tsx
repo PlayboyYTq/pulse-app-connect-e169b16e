@@ -6,11 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/format";
-import { Search, UserPlus, Check, X, Clock, MessageCircle } from "lucide-react";
+import { Search, UserPlus, Check, X, Clock, MessageCircle, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type Profile = { id: string; name: string; avatar_url: string | null; status: string };
+type Profile = { id: string; name: string; avatar_url: string | null; status: string; masked_phone?: string | null };
+type SearchMode = "name" | "phone";
 type FriendRequest = {
   id: string;
   sender_id: string;
@@ -29,6 +30,7 @@ export function FriendsPanel() {
   const [incoming, setIncoming] = useState<Array<FriendRequest & { profile: Profile }>>([]);
   const [outgoing, setOutgoing] = useState<Array<FriendRequest & { profile: Profile }>>([]);
   const [search, setSearch] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("name");
   const [discover, setDiscover] = useState<Profile[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(false);
 
@@ -71,7 +73,7 @@ export function FriendsPanel() {
     };
   }, [user?.id, load]);
 
-  // Discover search
+  // Discover search (name OR phone)
   useEffect(() => {
     if (section !== "discover" || !user) return;
     const q = search.trim();
@@ -81,19 +83,38 @@ export function FriendsPanel() {
     }
     const t = setTimeout(async () => {
       setDiscoverLoading(true);
-      const { data } = await supabase
-        .from("profiles")
-        .select("id,name,avatar_url,status")
-        .ilike("name", `%${q}%`)
-        .neq("id", user.id)
-        .limit(30);
       const friendIds = new Set(friends.map((f) => f.id));
       const reqIds = new Set([...incoming.map((r) => r.profile.id), ...outgoing.map((r) => r.profile.id)]);
-      setDiscover(((data ?? []) as Profile[]).filter((p) => !friendIds.has(p.id) && !reqIds.has(p.id)));
+      if (searchMode === "phone") {
+        const { data, error } = await supabase.rpc("search_user_by_phone", { _phone: q });
+        if (error) {
+          setDiscover([]);
+        } else {
+          setDiscover(
+            ((data ?? []) as Array<{ id: string; name: string; avatar_url: string | null; masked_phone: string | null }>)
+              .filter((p) => !friendIds.has(p.id) && !reqIds.has(p.id))
+              .map((p) => ({ id: p.id, name: p.name, avatar_url: p.avatar_url, status: "offline", masked_phone: p.masked_phone }))
+          );
+        }
+      } else {
+        const { data: blocks } = await supabase.from("user_blocks").select("blocked_id").eq("blocker_id", user.id);
+        const blockedIds = new Set((blocks ?? []).map((b) => b.blocked_id));
+        const { data } = await supabase
+          .from("profiles")
+          .select("id,name,avatar_url,status")
+          .ilike("name", `%${q}%`)
+          .neq("id", user.id)
+          .limit(30);
+        setDiscover(
+          ((data ?? []) as Profile[]).filter(
+            (p) => !friendIds.has(p.id) && !reqIds.has(p.id) && !blockedIds.has(p.id)
+          )
+        );
+      }
       setDiscoverLoading(false);
-    }, 200);
+    }, 250);
     return () => clearTimeout(t);
-  }, [search, section, user?.id, friends, incoming, outgoing]);
+  }, [search, searchMode, section, user?.id, friends, incoming, outgoing]);
 
   const sendRequest = async (p: Profile) => {
     if (!user) return;
