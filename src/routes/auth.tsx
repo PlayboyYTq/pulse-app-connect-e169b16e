@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { MessageCircle } from "lucide-react";
+import { ArrowRight, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -85,29 +85,69 @@ function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-accent/40">
-      <div className="w-full max-w-md">
-        <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="size-10 rounded-2xl bg-primary text-primary-foreground grid place-items-center shadow-lg shadow-primary/20">
-            <MessageCircle className="size-5" />
+    <div className="min-h-screen overflow-hidden px-4 py-8 md:px-6">
+      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="surface-panel relative hidden overflow-hidden rounded-[2rem] p-8 text-foreground lg:flex lg:min-h-[720px] lg:flex-col lg:justify-between">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,color-mix(in_oklab,var(--color-primary)_18%,transparent),transparent_38%),linear-gradient(180deg,color-mix(in_oklab,var(--color-accent)_35%,transparent),transparent_48%)]" />
+          <div className="relative">
+            <Link to="/" className="inline-flex items-center gap-3 rounded-full border border-border/70 bg-background/60 px-4 py-2 text-sm font-semibold backdrop-blur">
+              <span className="grid size-9 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+                <MessageCircle className="size-4" />
+              </span>
+              Pulse
+            </Link>
+            <div className="mt-14 max-w-xl">
+              <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-accent px-3 py-1 text-xs font-semibold uppercase tracking-[0.22em] text-accent-foreground">
+                <Sparkles className="size-3.5" /> Professional messaging
+              </p>
+              <h1 className="text-balance text-5xl font-semibold leading-[0.95] tracking-tight">
+                {mode === "signin" ? "Welcome back to faster, cleaner conversations." : "Create your account and start chatting instantly."}
+              </h1>
+              <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground">
+                Simple email access, polished chat flows, and instant delivery designed to feel reliable every time you open the app.
+              </p>
+            </div>
           </div>
-          <span className="text-2xl font-bold tracking-tight">Pulse</span>
-        </Link>
 
-        <Card className="p-7 shadow-xl border-border/60">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {mode === "signin" ? "Welcome back" : "Create your account"}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {mode === "signin" ? "Sign in with your email and password" : "Sign up with your email"}
-          </p>
+          <div className="relative grid gap-4 md:grid-cols-2">
+            <div className="surface-glass rounded-[1.6rem] p-5">
+              <ShieldCheck className="size-5 text-primary" />
+              <h2 className="mt-4 text-lg font-semibold">Secure by default</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Email and password only, clean validation, and a calmer onboarding flow.</p>
+            </div>
+            <div className="surface-glass rounded-[1.6rem] p-5">
+              <ArrowRight className="size-5 text-primary" />
+              <h2 className="mt-4 text-lg font-semibold">Built for speed</h2>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Messages render instantly and the interface stays focused on the conversation.</p>
+            </div>
+          </div>
+        </section>
 
-          <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-4">
+        <div className="w-full max-w-xl justify-self-center lg:max-w-md">
+          <Link to="/" className="mb-6 inline-flex items-center gap-3 rounded-full border border-border/70 bg-background/70 px-4 py-2 text-sm font-semibold backdrop-blur lg:hidden">
+            <span className="grid size-9 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+              <MessageCircle className="size-4" />
+            </span>
+            Pulse
+          </Link>
+
+          <Card className="surface-glass rounded-[2rem] border-border/70 p-7 shadow-none md:p-8">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">{mode === "signin" ? "Sign in" : "Create account"}</p>
+              <h2 className="text-3xl font-semibold tracking-tight">
+                {mode === "signin" ? "Access your workspace" : "Join Pulse"}
+              </h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {mode === "signin" ? "Use your email and password to continue." : "Fill in your details to create a new account."}
+              </p>
+            </div>
+
+            <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
             {mode === "signup" && (
               <>
-                <div className="space-y-1.5">
+                  <div className="space-y-1.5">
                   <Label htmlFor="name">Full name</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" autoComplete="name" aria-invalid={!!errors.name} />
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" autoComplete="name" aria-invalid={!!errors.name} className="h-12 rounded-2xl border-border/70 bg-background/80" />
                   {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                 </div>
                 <div className="space-y-1.5">
@@ -120,6 +160,7 @@ function AuthPage() {
                     max={new Date().toISOString().slice(0, 10)}
                     autoComplete="bday"
                     aria-invalid={!!errors.dob}
+                      className="h-12 rounded-2xl border-border/70 bg-background/80"
                   />
                   {errors.dob && <p className="text-xs text-destructive">{errors.dob}</p>}
                 </div>
@@ -136,6 +177,7 @@ function AuthPage() {
                 placeholder="you@example.com"
                 autoComplete="email"
                 aria-invalid={!!errors.email}
+                className="h-12 rounded-2xl border-border/70 bg-background/80"
               />
               {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
             </div>
@@ -150,6 +192,7 @@ function AuthPage() {
                 placeholder="At least 6 characters"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
                 aria-invalid={!!errors.password}
+                className="h-12 rounded-2xl border-border/70 bg-background/80"
               />
               {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
             </div>
@@ -158,7 +201,7 @@ function AuthPage() {
               <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">{errors.form}</p>
             )}
 
-            <Button type="submit" className="w-full h-11 rounded-xl" disabled={busy}>
+            <Button type="submit" className="h-12 w-full rounded-2xl text-sm font-semibold" disabled={busy}>
               {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
             </Button>
           </form>
@@ -166,11 +209,12 @@ function AuthPage() {
           <button
             type="button"
             onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setErrors({}); }}
-            className="mt-5 text-sm text-muted-foreground hover:text-foreground w-full text-center"
+            className="mt-5 w-full text-center text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             {mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
