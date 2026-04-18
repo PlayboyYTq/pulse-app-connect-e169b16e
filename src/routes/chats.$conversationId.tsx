@@ -668,8 +668,10 @@ function ChatView() {
                 </PopoverContent>
               </Popover>
             </div>
+            </div>
           );
-        })}
+        });
+        })()}
         {otherTyping && (
           <div className="flex justify-start mt-2 animate-fade-in">
             <div className="bg-bubble-in text-bubble-in-foreground rounded-2xl rounded-bl-md px-3.5 py-2.5 shadow-sm">
