@@ -9,11 +9,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, FileText } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, FileText, Forward } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
 import { useCall } from "@/lib/calls";
+import { ForwardDialog, type ForwardPayload } from "@/components/ForwardDialog";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/chats/$conversationId")({
