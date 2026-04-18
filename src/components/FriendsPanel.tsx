@@ -249,13 +249,21 @@ export function FriendsPanel() {
 
         {section === "discover" && (
           <>
-            {!search && <EmptyState title="Find new people" hint="Search by name to send a friend request." />}
+            {!search && (
+              <EmptyState
+                title={searchMode === "phone" ? "Find by phone number" : "Find new people"}
+                hint={searchMode === "phone" ? "Enter the exact number including country code (e.g. +91…)." : "Search by name to send a friend request."}
+              />
+            )}
             {search && discoverLoading && <div className="px-4 py-3 text-sm text-muted-foreground">Searching…</div>}
             {search && !discoverLoading && discover.length === 0 && (
-              <EmptyState title="No new users found" hint="Try a different name." />
+              <EmptyState
+                title="No users found"
+                hint={searchMode === "phone" ? "No account uses this exact number." : "Try a different name."}
+              />
             )}
             {discover.map((p) => (
-              <Row key={p.id} profile={p}>
+              <Row key={p.id} profile={p} subtitle={p.masked_phone ?? undefined}>
                 <Button size="sm" variant="secondary" className="rounded-full h-8" onClick={() => sendRequest(p)}>
                   <UserPlus className="size-3.5 mr-1.5" /> Add
                 </Button>
