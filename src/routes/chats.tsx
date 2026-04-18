@@ -99,9 +99,11 @@ function ChatsLayout() {
       .select("conversation_id")
       .neq("sender_id", user.id)
       .neq("status", "read")
+      .not("conversation_id", "is", null)
       .limit(1000);
     const counts: Record<string, number> = {};
-    (data ?? []).forEach((m: { conversation_id: string }) => {
+    (data ?? []).forEach((m: { conversation_id: string | null }) => {
+      if (!m.conversation_id) return;
       counts[m.conversation_id] = (counts[m.conversation_id] ?? 0) + 1;
     });
     setUnread(counts);
