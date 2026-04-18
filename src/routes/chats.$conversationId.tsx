@@ -63,6 +63,8 @@ function ChatView() {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blocking, setBlocking] = useState(false);
@@ -265,6 +267,8 @@ function ChatView() {
       created_at: new Date().toISOString(),
       reply_to_message_id: replySnapshot?.id ?? null,
       deleted_for_everyone: false,
+      media_url: null,
+      media_type: null,
     };
     setMessages((prev) => [...prev, optimistic]);
     const { data, error } = await supabase
@@ -284,6 +288,41 @@ function ChatView() {
       });
     }
     setSending(false);
+  };
+
+  const sendAttachment = async (file: File) => {
+    if (!user || uploading) return;
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("Max file size is 25MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("chat-media").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("chat-media").getPublicUrl(path);
+      const url = pub.publicUrl;
+      const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "file";
+      const content = kind === "file" ? file.name : "";
+      const { error: insErr } = await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content,
+        media_url: url,
+        media_type: kind,
+      });
+      if (insErr) throw insErr;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const toggleReaction = async (messageId: string, emoji: string) => {
