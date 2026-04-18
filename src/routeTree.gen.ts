@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as InstallRouteImport } from './routes/install'
 import { Route as DownloadRouteImport } from './routes/download'
@@ -22,6 +23,11 @@ import { Route as ApiDeleteAccountRouteImport } from './routes/api/delete-accoun
 import { Route as ApiAskifyRouteImport } from './routes/api/askify'
 import { Route as ApiPushSendRouteImport } from './routes/api/push.send'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
@@ -91,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/download': typeof DownloadRoute
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByTo {
   '/download': typeof DownloadRoute
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
@@ -120,6 +128,7 @@ export interface FileRoutesById {
   '/download': typeof DownloadRoute
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
+  '/settings': typeof SettingsRoute
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/install'
     | '/profile'
+    | '/settings'
     | '/api/askify'
     | '/api/delete-account'
     | '/chats/$conversationId'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/install'
     | '/profile'
+    | '/settings'
     | '/api/askify'
     | '/api/delete-account'
     | '/chats/$conversationId'
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/install'
     | '/profile'
+    | '/settings'
     | '/api/askify'
     | '/api/delete-account'
     | '/chats/$conversationId'
@@ -179,6 +191,7 @@ export interface RootRouteChildren {
   DownloadRoute: typeof DownloadRoute
   InstallRoute: typeof InstallRoute
   ProfileRoute: typeof ProfileRoute
+  SettingsRoute: typeof SettingsRoute
   ApiAskifyRoute: typeof ApiAskifyRoute
   ApiDeleteAccountRoute: typeof ApiDeleteAccountRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
@@ -187,6 +200,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
@@ -292,6 +312,7 @@ const rootRouteChildren: RootRouteChildren = {
   DownloadRoute: DownloadRoute,
   InstallRoute: InstallRoute,
   ProfileRoute: ProfileRoute,
+  SettingsRoute: SettingsRoute,
   ApiAskifyRoute: ApiAskifyRoute,
   ApiDeleteAccountRoute: ApiDeleteAccountRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,

@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth";
 import { CallProvider } from "@/lib/calls";
 import { CallScreen } from "@/components/CallScreen";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/lib/theme";
 import { registerServiceWorker } from "@/lib/registerSW";
 
 export const Route = createRootRoute({
@@ -60,12 +61,14 @@ function RootComponent() {
     registerServiceWorker();
   }, []);
   return (
-    <AuthProvider>
-      <CallProvider>
-        <Outlet />
-        <CallScreen />
-        <Toaster richColors position="top-center" />
-      </CallProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <CallProvider>
+          <Outlet />
+          <CallScreen />
+          <Toaster richColors position="top-center" />
+        </CallProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

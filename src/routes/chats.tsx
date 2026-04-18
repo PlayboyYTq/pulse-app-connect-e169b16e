@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatChatListTime, initials } from "@/lib/format";
-import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone } from "lucide-react";
+import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
@@ -336,6 +336,9 @@ function ChatsLayout() {
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
                   <Link to="/profile"><UserIcon className="size-4 mr-2" /> Profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings"><SettingsIcon className="size-4 mr-2" /> Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/install"><Smartphone className="size-4 mr-2" /> Install app</Link>
