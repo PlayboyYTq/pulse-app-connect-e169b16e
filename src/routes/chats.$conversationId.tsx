@@ -434,6 +434,9 @@ function ChatView() {
               <Button variant="ghost" size="icon" className="rounded-full" disabled={callPhase !== "idle"} onClick={() => startCall({ id: other.id, name: other.name, avatar_url: other.avatar_url }, "video")} aria-label="Video call">
                 <Video className="size-5" />
               </Button>
+              <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setSearchOpen((o) => !o); setSearchQuery(""); }} aria-label="Search in chat">
+                <SearchIcon className="size-5" />
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="rounded-full">
