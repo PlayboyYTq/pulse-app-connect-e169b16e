@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, Link, useParams, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -14,12 +14,9 @@ import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { playMessageSound } from "@/lib/sound";
+import { AppLoader } from "@/components/AppLoader";
 
 export const Route = createFileRoute("/chats")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth" });
-  },
   component: ChatsLayout,
 });
 
@@ -44,7 +41,7 @@ type ChatItem = {
 };
 
 function ChatsLayout() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
   const [tab, setTab] = useState<"chats" | "friends">("chats");
@@ -53,10 +50,16 @@ function ChatsLayout() {
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [listChannelVersion, setListChannelVersion] = useState(0);
   const activeConvRef = useRef<string | undefined>(undefined);
   activeConvRef.current = params.conversationId;
   const userIdRef = useRef<string | undefined>(undefined);
   userIdRef.current = user?.id;
+  const listReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth" });
+  }, [loading, user, navigate]);
 
   const loadChats = async () => {
     if (!user) return;
@@ -162,8 +165,17 @@ function ChatsLayout() {
     loadUnread();
     loadPendingCount();
     if (!user) return;
+    let disposed = false;
+    const scheduleReconnect = () => {
+      if (disposed || listReconnectTimerRef.current) return;
+      listReconnectTimerRef.current = setTimeout(() => {
+        listReconnectTimerRef.current = null;
+        setListChannelVersion((value) => value + 1);
+      }, 1000);
+    };
+
     const channel = supabase
-      .channel("chats-list")
+      .channel(`chats-list:${user.id}:${listChannelVersion}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => loadChats())
       .on(
         "postgres_changes",
@@ -207,12 +219,29 @@ function ChatsLayout() {
       .on("postgres_changes", { event: "*", schema: "public", table: "user_blocks" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => loadChats())
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          if (listReconnectTimerRef.current) {
+            clearTimeout(listReconnectTimerRef.current);
+            listReconnectTimerRef.current = null;
+          }
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          scheduleReconnect();
+        }
+      });
     return () => {
+      disposed = true;
+      if (listReconnectTimerRef.current) {
+        clearTimeout(listReconnectTimerRef.current);
+        listReconnectTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, listChannelVersion]);
 
   // Clear unread for the currently open conversation
   useEffect(() => {
@@ -228,6 +257,14 @@ function ChatsLayout() {
   const filtered = chats.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()));
   const showSidebarOnMobile = !params.conversationId;
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+
+  if (loading) {
+    return <AppLoader title="Opening Pulse" detail="Restoring your session and loading chats…" />;
+  }
+
+  if (!user) {
+    return <AppLoader title="Redirecting to sign in" detail="Please wait a moment…" />;
+  }
 
   return (
     <div className="h-screen flex bg-background">

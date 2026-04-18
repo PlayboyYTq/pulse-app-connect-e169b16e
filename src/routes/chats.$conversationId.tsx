@@ -68,12 +68,11 @@ function ChatView() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const realtimeReadyRef = useRef(false);
-  const latestMessageAtRef = useRef<string | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
   const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-  const [realtimeHealthy, setRealtimeHealthy] = useState(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [channelVersion, setChannelVersion] = useState(0);
 
   const blockUser = async () => {
     if (!user || !other) return;
@@ -92,7 +91,6 @@ function ChatView() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    setInitialLoaded(false);
     (async () => {
       const { data: conv } = await supabase
         .from("conversations")
@@ -108,7 +106,6 @@ function ChatView() {
       if (cancelled) return;
       setOther(prof as Profile);
       setMessages((msgs ?? []) as Message[]);
-      setInitialLoaded(true);
       // Mark all incoming as read (covers "sent" + "delivered")
       const unread = (msgs ?? []).filter((m) => m.sender_id !== user.id && m.status !== "read");
       if (unread.length) {
@@ -123,13 +120,18 @@ function ChatView() {
 
   const channelKey = useId();
 
-  useEffect(() => {
-    latestMessageAtRef.current = messages.length ? messages[messages.length - 1].created_at : null;
-  }, [messages]);
-
   // Realtime: postgres_changes + typing broadcast
   useEffect(() => {
     if (!user) return;
+    let disposed = false;
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimerRef.current) return;
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        setChannelVersion((value) => value + 1);
+      }, 1000);
+    };
+
     const channel = supabase
       .channel(`conv:${conversationId}:${user.id}:${channelKey}`, { config: { broadcast: { self: false } } })
       .on(
@@ -166,25 +168,32 @@ function ChatView() {
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           realtimeReadyRef.current = true;
-          setRealtimeHealthy(true);
+          if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+          }
           return;
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           realtimeReadyRef.current = false;
-          setRealtimeHealthy(false);
+          scheduleReconnect();
           console.warn("[realtime] channel status:", status, conversationId);
         }
       });
     channelRef.current = channel;
     return () => {
+      disposed = true;
       realtimeReadyRef.current = false;
-      setRealtimeHealthy(false);
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [conversationId, user?.id, channelKey]);
+  }, [conversationId, user?.id, channelKey, channelVersion]);
 
   useEffect(() => {
     if (!other?.id) return;
@@ -201,46 +210,6 @@ function ChatView() {
       supabase.removeChannel(profileChannel);
     };
   }, [conversationId, other?.id]);
-
-  useEffect(() => {
-    if (!user || !initialLoaded || realtimeHealthy) return;
-
-    let cancelled = false;
-
-    const syncRecentMessages = async () => {
-      let query = supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true })
-        .limit(500);
-
-      if (latestMessageAtRef.current) {
-        query = query.gt("created_at", latestMessageAtRef.current);
-      }
-
-      const { data, error } = await query;
-      if (cancelled || error || !data?.length) return;
-
-      const incoming = data as Message[];
-      setMessages((prev) => mergeMessages(prev, incoming));
-
-      const unreadIds = incoming.filter((message) => message.sender_id !== user.id && message.status !== "read").map((message) => message.id);
-      if (unreadIds.length) {
-        await supabase.from("messages").update({ status: "read" }).in("id", unreadIds);
-      }
-    };
-
-    void syncRecentMessages();
-    const intervalId = window.setInterval(() => {
-      void syncRecentMessages();
-    }, 750);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [conversationId, initialLoaded, realtimeHealthy, user?.id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });

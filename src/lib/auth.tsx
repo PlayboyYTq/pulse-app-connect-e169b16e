@@ -35,18 +35,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
-      setSession(s);
-      if (s?.user) {
-        setTimeout(() => loadProfile(s.user.id), 0);
+    const syncSession = (nextSession: Session | null) => {
+      setSession(nextSession);
+      if (nextSession?.user) {
+        void loadProfile(nextSession.user.id);
       } else {
         setProfile(null);
       }
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
+      syncSession(s);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session?.user) loadProfile(data.session.user.id);
+    void supabase.auth.getSession().then(({ data }) => {
+      syncSession(data.session);
       setLoading(false);
     });
 
@@ -82,10 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         loading,
         signOut: async () => {
-          if (session?.user) {
-            await supabase.from("profiles").update({ status: "offline", last_seen: new Date().toISOString() }).eq("id", session.user.id);
+          try {
+            if (session?.user) {
+              await supabase.from("profiles").update({ status: "offline", last_seen: new Date().toISOString() }).eq("id", session.user.id);
+            }
+          } catch {
+            // best-effort presence update
+          } finally {
+            await supabase.auth.signOut();
           }
-          await supabase.auth.signOut();
         },
         refreshProfile: async () => session?.user && loadProfile(session.user.id),
       }}

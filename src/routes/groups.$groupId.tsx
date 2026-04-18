@@ -65,15 +65,13 @@ function GroupChatView() {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelKey = useId();
-  const latestMessageAtRef = useRef<string | null>(null);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-  const [realtimeHealthy, setRealtimeHealthy] = useState(false);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [channelVersion, setChannelVersion] = useState(0);
 
   // Load group + members + messages
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    setInitialLoaded(false);
     (async () => {
       const [{ data: g }, { data: ms }, { data: mems }] = await Promise.all([
         supabase.from("groups").select("id,name,avatar_url").eq("id", groupId).maybeSingle(),
@@ -84,7 +82,6 @@ function GroupChatView() {
       if (!g) { toast.error("Group not found"); navigate({ to: "/chats" }); return; }
       setGroup(g as Group);
       setMessages((ms ?? []) as Message[]);
-      setInitialLoaded(true);
       const memberIds = (mems ?? []).map((m) => m.user_id);
       if (memberIds.length) {
         const { data: profs } = await supabase
@@ -97,13 +94,17 @@ function GroupChatView() {
     return () => { cancelled = true; };
   }, [groupId, user?.id, navigate]);
 
-  // Realtime
-  useEffect(() => {
-    latestMessageAtRef.current = messages.length ? messages[messages.length - 1].created_at : null;
-  }, [messages]);
-
   useEffect(() => {
     if (!user) return;
+    let disposed = false;
+    const scheduleReconnect = () => {
+      if (disposed || reconnectTimerRef.current) return;
+      reconnectTimerRef.current = setTimeout(() => {
+        reconnectTimerRef.current = null;
+        setChannelVersion((value) => value + 1);
+      }, 1000);
+    };
+
     const channel = supabase
       .channel(`group:${groupId}:${user.id}:${channelKey}`)
       .on(
@@ -116,52 +117,26 @@ function GroupChatView() {
       )
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
-          setRealtimeHealthy(true);
+          if (reconnectTimerRef.current) {
+            clearTimeout(reconnectTimerRef.current);
+            reconnectTimerRef.current = null;
+          }
           return;
         }
 
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          setRealtimeHealthy(false);
+          scheduleReconnect();
         }
       });
     return () => {
-      setRealtimeHealthy(false);
+      disposed = true;
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
-  }, [groupId, user?.id, channelKey]);
-
-  useEffect(() => {
-    if (!initialLoaded || realtimeHealthy) return;
-
-    let cancelled = false;
-
-    const syncRecentMessages = async () => {
-      let query = supabase
-        .from("messages")
-        .select("*")
-        .eq("group_id", groupId)
-        .order("created_at", { ascending: true })
-        .limit(500);
-
-      if (latestMessageAtRef.current) {
-        query = query.gt("created_at", latestMessageAtRef.current);
-      }
-
-      const { data, error } = await query;
-      if (cancelled || error || !data?.length) return;
-      setMessages((prev) => mergeMessages(prev, data as Message[]));
-    };
-
-    void syncRecentMessages();
-    const intervalId = window.setInterval(() => {
-      void syncRecentMessages();
-    }, 750);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [groupId, initialLoaded, realtimeHealthy]);
+  }, [groupId, user?.id, channelKey, channelVersion]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
