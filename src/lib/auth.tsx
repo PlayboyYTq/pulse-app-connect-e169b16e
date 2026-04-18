@@ -41,34 +41,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    let initialSessionResolved = false;
 
     const applySession = (nextSession: Session | null) => {
       if (!active) return;
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
 
-      if (nextSession?.user && isVerifiedEmailUser(nextSession)) {
+      if (nextSession?.user) {
+        // Load profile for any authenticated user (email-confirmed, phone, OAuth)
         void loadProfile(nextSession.user.id);
       } else {
         setProfile(null);
       }
+      setLoading(false);
     };
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      if (!initialSessionResolved && event === "INITIAL_SESSION") return;
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       applySession(nextSession);
-      if (initialSessionResolved) {
-        setLoading(false);
-      }
     });
 
     void supabase.auth.getSession().then(({ data }) => {
-      initialSessionResolved = true;
       applySession(data.session);
-      setLoading(false);
     });
 
     return () => {
