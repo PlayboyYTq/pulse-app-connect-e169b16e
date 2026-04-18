@@ -183,7 +183,7 @@ function ChatsLayout() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
-          const m = payload.new as { id: string; conversation_id: string; sender_id: string; content: string };
+          const m = payload.new as { id: string; conversation_id: string; sender_id: string; content: string; status: string };
           loadChats();
           if (m.sender_id === userIdRef.current) return;
           // RLS already filters server-side; double-check client-side that this convo is mine.
@@ -193,6 +193,11 @@ function ChatsLayout() {
             .eq("id", m.conversation_id)
             .maybeSingle();
           if (!isMine) return;
+          // Mark as delivered as soon as our client receives it (recipient online).
+          // The chat view will further upgrade it to "read" if open.
+          if (m.status === "sent") {
+            void supabase.from("messages").update({ status: "delivered" }).eq("id", m.id);
+          }
           if (activeConvRef.current === m.conversation_id) return;
           setUnread((prev) => ({ ...prev, [m.conversation_id]: (prev[m.conversation_id] ?? 0) + 1 }));
           playMessageSound();
