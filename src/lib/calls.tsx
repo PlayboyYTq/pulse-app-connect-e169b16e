@@ -309,7 +309,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, phase: "ended", errorMessage: msg }));
       cleanup();
     }
-  }, [user, state.peer, state.callId, ensurePeerChannel, acquireLocalMedia, setupPeerConnection, flushIce, sendToPeer, cleanup]);
+  }, [user, state.peer, state.callId, ensurePeerChannel, acquireLocalMedia, setupPeerConnection, flushIce, sendToPeer, cleanup, closeIncomingNotif]);
 
   const rejectCall = useCallback(() => {
     if (!user || !state.callId) return;
