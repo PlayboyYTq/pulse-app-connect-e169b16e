@@ -472,14 +472,39 @@ function ChatView() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {searchOpen && (
+        <div className="px-3 md:px-5 py-2 border-b border-border bg-card/40 backdrop-blur flex items-center gap-2 animate-fade-in">
+          <SearchIcon className="size-4 text-muted-foreground shrink-0" />
+          <Input
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search in this chat"
+            className="h-9 rounded-xl bg-background/70 border-border/60"
+          />
+          <Button variant="ghost" size="icon" className="size-8 rounded-full" onClick={() => { setSearchOpen(false); setSearchQuery(""); }} aria-label="Close search">
+            <X className="size-4" />
+          </Button>
+        </div>
+      )}
+
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-2 bg-gradient-to-b from-background to-accent/20">
         {visibleMessages.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-10">No messages yet — say hi!</div>
         )}
-        {visibleMessages.map((m, i) => {
+        {(() => {
+          const q = searchQuery.trim().toLowerCase();
+          const renderList = q
+            ? visibleMessages.filter((m) => !m.deleted_for_everyone && m.content.toLowerCase().includes(q))
+            : visibleMessages;
+          if (q && renderList.length === 0) {
+            return <div className="text-center text-sm text-muted-foreground py-10">No messages match “{searchQuery}”.</div>;
+          }
+          return renderList.map((m, i) => {
           const mine = m.sender_id === user?.id;
-          const prev = visibleMessages[i - 1];
-          const groupedWithPrev = prev && prev.sender_id === m.sender_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000;
+          const prev = renderList[i - 1];
+          const groupedWithPrev = !q && prev && prev.sender_id === m.sender_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000;
+          const showDateSeparator = !q && (!prev || !isSameDay(prev.created_at, m.created_at));
           const msgReactions = reactions.filter((r) => r.message_id === m.id);
           const reactionGroups = msgReactions.reduce<Record<string, { count: number; mine: boolean }>>((acc, r) => {
             const cur = acc[r.emoji] ?? { count: 0, mine: false };
@@ -492,16 +517,23 @@ function ChatView() {
           const isOpen = activeMessageId === m.id;
 
           return (
-            <div
-              key={m.id}
-              id={`msg-${m.id}`}
-              className={cn(
-                "flex animate-fade-in transition-colors rounded-2xl",
-                mine ? "justify-end" : "justify-start",
-                groupedWithPrev ? "mt-0.5" : "mt-2",
-                highlightId === m.id && "bg-primary/10",
+            <div key={m.id}>
+              {showDateSeparator && (
+                <div className="flex justify-center my-3">
+                  <span className="text-[11px] font-medium px-3 py-1 rounded-full bg-muted/70 text-muted-foreground shadow-sm">
+                    {dateSeparatorLabel(m.created_at)}
+                  </span>
+                </div>
               )}
-            >
+              <div
+                id={`msg-${m.id}`}
+                className={cn(
+                  "flex animate-fade-in transition-colors rounded-2xl",
+                  mine ? "justify-end" : "justify-start",
+                  groupedWithPrev ? "mt-0.5" : "mt-2",
+                  (highlightId === m.id || (q && m.content.toLowerCase().includes(q))) && "bg-primary/10",
+                )}
+              >
               <Popover open={isOpen} onOpenChange={(o) => setActiveMessageId(o ? m.id : null)}>
                 <PopoverTrigger asChild>
                   <div
