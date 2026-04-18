@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -11,19 +11,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { initials } from "@/lib/format";
 import { ArrowLeft, Camera, ShieldOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { AppLoader } from "@/components/AppLoader";
 
 export const Route = createFileRoute("/profile")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth" });
-  },
   component: ProfilePage,
 });
 
 type BlockedUser = { id: string; name: string; avatar_url: string | null };
 
 function ProfilePage() {
-  const { user, profile, refreshProfile } = useAuth();
+  const navigate = useNavigate();
+  const { user, profile, refreshProfile, loading } = useAuth();
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [phone, setPhone] = useState("");
@@ -41,6 +39,10 @@ function ProfilePage() {
   // Blocked users
   const [blocked, setBlocked] = useState<BlockedUser[]>([]);
   const [blockedLoading, setBlockedLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth" });
+  }, [loading, user, navigate]);
 
   useEffect(() => {
     if (profile) {
@@ -160,6 +162,14 @@ function ProfilePage() {
     toast.success("Avatar updated");
     await refreshProfile();
   };
+
+  if (loading) {
+    return <AppLoader title="Opening your profile" detail="Restoring your account…" />;
+  }
+
+  if (!user) {
+    return <AppLoader title="Redirecting to sign in" detail="Please wait a moment…" />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-accent/30">

@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect, Link, useParams, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -14,12 +14,9 @@ import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { playMessageSound } from "@/lib/sound";
+import { AppLoader } from "@/components/AppLoader";
 
 export const Route = createFileRoute("/chats")({
-  beforeLoad: async () => {
-    const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth" });
-  },
   component: ChatsLayout,
 });
 
@@ -44,7 +41,7 @@ type ChatItem = {
 };
 
 function ChatsLayout() {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, loading } = useAuth();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
   const [tab, setTab] = useState<"chats" | "friends">("chats");
@@ -57,6 +54,10 @@ function ChatsLayout() {
   activeConvRef.current = params.conversationId;
   const userIdRef = useRef<string | undefined>(undefined);
   userIdRef.current = user?.id;
+
+  useEffect(() => {
+    if (!loading && !user) navigate({ to: "/auth" });
+  }, [loading, user, navigate]);
 
   const loadChats = async () => {
     if (!user) return;
@@ -228,6 +229,14 @@ function ChatsLayout() {
   const filtered = chats.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()));
   const showSidebarOnMobile = !params.conversationId;
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+
+  if (loading) {
+    return <AppLoader title="Opening Pulse" detail="Restoring your session and loading chats…" />;
+  }
+
+  if (!user) {
+    return <AppLoader title="Redirecting to sign in" detail="Please wait a moment…" />;
+  }
 
   return (
     <div className="h-screen flex bg-background">
