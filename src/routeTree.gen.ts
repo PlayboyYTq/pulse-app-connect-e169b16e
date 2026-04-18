@@ -13,6 +13,7 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as ChatsConversationIdRouteImport } from './routes/chats.$conversationId'
 
 const ProfileRoute = ProfileRouteImport.update({
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GroupsGroupIdRoute = GroupsGroupIdRouteImport.update({
+  id: '/groups/$groupId',
+  path: '/groups/$groupId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatsConversationIdRoute = ChatsConversationIdRouteImport.update({
   id: '/$conversationId',
   path: '/$conversationId',
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/chats': typeof ChatsRouteWithChildren
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
+  '/groups/$groupId': typeof GroupsGroupIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/chats': typeof ChatsRouteWithChildren
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
+  '/groups/$groupId': typeof GroupsGroupIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,12 +70,25 @@ export interface FileRoutesById {
   '/chats': typeof ChatsRouteWithChildren
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
+  '/groups/$groupId': typeof GroupsGroupIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/chats' | '/profile' | '/chats/$conversationId'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/chats'
+    | '/profile'
+    | '/chats/$conversationId'
+    | '/groups/$groupId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/chats' | '/profile' | '/chats/$conversationId'
+  to:
+    | '/'
+    | '/auth'
+    | '/chats'
+    | '/profile'
+    | '/chats/$conversationId'
+    | '/groups/$groupId'
   id:
     | '__root__'
     | '/'
@@ -75,6 +96,7 @@ export interface FileRouteTypes {
     | '/chats'
     | '/profile'
     | '/chats/$conversationId'
+    | '/groups/$groupId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -82,6 +104,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ChatsRoute: typeof ChatsRouteWithChildren
   ProfileRoute: typeof ProfileRoute
+  GroupsGroupIdRoute: typeof GroupsGroupIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -114,6 +137,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/groups/$groupId': {
+      id: '/groups/$groupId'
+      path: '/groups/$groupId'
+      fullPath: '/groups/$groupId'
+      preLoaderRoute: typeof GroupsGroupIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chats/$conversationId': {
       id: '/chats/$conversationId'
       path: '/$conversationId'
@@ -139,7 +169,17 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ChatsRoute: ChatsRouteWithChildren,
   ProfileRoute: ProfileRoute,
+  GroupsGroupIdRoute: GroupsGroupIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
