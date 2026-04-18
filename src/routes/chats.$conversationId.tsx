@@ -232,9 +232,39 @@ function ChatView() {
                 )}
               </div>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-auto rounded-full">
+                  <MoreVertical className="size-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setBlockOpen(true)} className="text-destructive focus:text-destructive">
+                  <ShieldOff className="size-4 mr-2" /> Block {other.name.split(" ")[0]}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         )}
       </header>
+
+      <AlertDialog open={blockOpen} onOpenChange={setBlockOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Block {other?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They won't be able to send you messages or friend requests, and you won't see each other in search.
+              Your existing friendship will be removed. You can unblock them later from Profile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={blockUser} disabled={blocking} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {blocking ? "Blocking…" : "Block"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-2 bg-gradient-to-b from-background to-accent/20">
         {messages.length === 0 && (
