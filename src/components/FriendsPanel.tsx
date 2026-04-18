@@ -6,11 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/format";
-import { Search, UserPlus, Check, X, Clock, MessageCircle } from "lucide-react";
+import { Search, UserPlus, Check, X, Clock, MessageCircle, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type Profile = { id: string; name: string; avatar_url: string | null; status: string };
+type Profile = { id: string; name: string; avatar_url: string | null; status: string; masked_phone?: string | null };
+type SearchMode = "name" | "phone";
 type FriendRequest = {
   id: string;
   sender_id: string;
@@ -29,6 +30,7 @@ export function FriendsPanel() {
   const [incoming, setIncoming] = useState<Array<FriendRequest & { profile: Profile }>>([]);
   const [outgoing, setOutgoing] = useState<Array<FriendRequest & { profile: Profile }>>([]);
   const [search, setSearch] = useState("");
+  const [searchMode, setSearchMode] = useState<SearchMode>("name");
   const [discover, setDiscover] = useState<Profile[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(false);
 
@@ -71,7 +73,7 @@ export function FriendsPanel() {
     };
   }, [user?.id, load]);
 
-  // Discover search
+  // Discover search (name OR phone)
   useEffect(() => {
     if (section !== "discover" || !user) return;
     const q = search.trim();
@@ -81,19 +83,38 @@ export function FriendsPanel() {
     }
     const t = setTimeout(async () => {
       setDiscoverLoading(true);
-      const { data } = await supabase
-        .from("profiles")
-        .select("id,name,avatar_url,status")
-        .ilike("name", `%${q}%`)
-        .neq("id", user.id)
-        .limit(30);
       const friendIds = new Set(friends.map((f) => f.id));
       const reqIds = new Set([...incoming.map((r) => r.profile.id), ...outgoing.map((r) => r.profile.id)]);
-      setDiscover(((data ?? []) as Profile[]).filter((p) => !friendIds.has(p.id) && !reqIds.has(p.id)));
+      if (searchMode === "phone") {
+        const { data, error } = await supabase.rpc("search_user_by_phone", { _phone: q });
+        if (error) {
+          setDiscover([]);
+        } else {
+          setDiscover(
+            ((data ?? []) as Array<{ id: string; name: string; avatar_url: string | null; masked_phone: string | null }>)
+              .filter((p) => !friendIds.has(p.id) && !reqIds.has(p.id))
+              .map((p) => ({ id: p.id, name: p.name, avatar_url: p.avatar_url, status: "offline", masked_phone: p.masked_phone }))
+          );
+        }
+      } else {
+        const { data: blocks } = await supabase.from("user_blocks").select("blocked_id").eq("blocker_id", user.id);
+        const blockedIds = new Set((blocks ?? []).map((b) => b.blocked_id));
+        const { data } = await supabase
+          .from("profiles")
+          .select("id,name,avatar_url,status")
+          .ilike("name", `%${q}%`)
+          .neq("id", user.id)
+          .limit(30);
+        setDiscover(
+          ((data ?? []) as Profile[]).filter(
+            (p) => !friendIds.has(p.id) && !reqIds.has(p.id) && !blockedIds.has(p.id)
+          )
+        );
+      }
       setDiscoverLoading(false);
-    }, 200);
+    }, 250);
     return () => clearTimeout(t);
-  }, [search, section, user?.id, friends, incoming, outgoing]);
+  }, [search, searchMode, section, user?.id, friends, incoming, outgoing]);
 
   const sendRequest = async (p: Profile) => {
     if (!user) return;
@@ -143,14 +164,35 @@ export function FriendsPanel() {
       </div>
 
       {section === "discover" && (
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-2 space-y-2">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60">
+            <button
+              onClick={() => { setSearchMode("name"); setSearch(""); setDiscover([]); }}
+              className={cn(
+                "h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                searchMode === "name" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Search className="size-3.5" /> By name
+            </button>
+            <button
+              onClick={() => { setSearchMode("phone"); setSearch(""); setDiscover([]); }}
+              className={cn(
+                "h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                searchMode === "phone" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Phone className="size-3.5" /> By phone
+            </button>
+          </div>
           <div className="relative">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search people by name"
+              placeholder={searchMode === "phone" ? "Exact phone, e.g. +919876543210" : "Search people by name"}
+              inputMode={searchMode === "phone" ? "tel" : "text"}
               className="pl-9 h-10 rounded-xl bg-muted/60 border-transparent focus-visible:bg-background"
             />
           </div>
@@ -207,13 +249,21 @@ export function FriendsPanel() {
 
         {section === "discover" && (
           <>
-            {!search && <EmptyState title="Find new people" hint="Search by name to send a friend request." />}
+            {!search && (
+              <EmptyState
+                title={searchMode === "phone" ? "Find by phone number" : "Find new people"}
+                hint={searchMode === "phone" ? "Enter the exact number including country code (e.g. +91…)." : "Search by name to send a friend request."}
+              />
+            )}
             {search && discoverLoading && <div className="px-4 py-3 text-sm text-muted-foreground">Searching…</div>}
             {search && !discoverLoading && discover.length === 0 && (
-              <EmptyState title="No new users found" hint="Try a different name." />
+              <EmptyState
+                title="No users found"
+                hint={searchMode === "phone" ? "No account uses this exact number." : "Try a different name."}
+              />
             )}
             {discover.map((p) => (
-              <Row key={p.id} profile={p}>
+              <Row key={p.id} profile={p} subtitle={p.masked_phone ?? undefined}>
                 <Button size="sm" variant="secondary" className="rounded-full h-8" onClick={() => sendRequest(p)}>
                   <UserPlus className="size-3.5 mr-1.5" /> Add
                 </Button>

@@ -7,6 +7,8 @@ type Profile = {
   name: string;
   avatar_url: string | null;
   date_of_birth: string | null;
+  phone: string | null;
+  email: string | null;
   status: string;
   last_seen: string;
 };

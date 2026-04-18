@@ -206,12 +206,40 @@ export type Database = {
         }
         Relationships: []
       }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
+      is_blocked: { Args: { _a: string; _b: string }; Returns: boolean }
+      search_user_by_phone: {
+        Args: { _phone: string }
+        Returns: {
+          avatar_url: string
+          id: string
+          masked_phone: string
+          name: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

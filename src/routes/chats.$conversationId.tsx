@@ -1,12 +1,14 @@
-import { createFileRoute, useParams } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
@@ -29,17 +31,33 @@ type Profile = { id: string; name: string; avatar_url: string | null; status: st
 
 function ChatView() {
   const { conversationId } = useParams({ from: "/chats/$conversationId" });
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [other, setOther] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
   const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const blockUser = async () => {
+    if (!user || !other) return;
+    setBlocking(true);
+    const { error } = await supabase
+      .from("user_blocks")
+      .insert({ blocker_id: user.id, blocked_id: other.id });
+    setBlocking(false);
+    if (error) return toast.error(error.message);
+    toast.success(`${other.name} has been blocked`);
+    setBlockOpen(false);
+    navigate({ to: "/chats" });
+  };
 
   // Load conversation + other user + messages
   useEffect(() => {
@@ -214,9 +232,39 @@ function ChatView() {
                 )}
               </div>
             </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="ml-auto rounded-full">
+                  <MoreVertical className="size-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setBlockOpen(true)} className="text-destructive focus:text-destructive">
+                  <ShieldOff className="size-4 mr-2" /> Block {other.name.split(" ")[0]}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </>
         )}
       </header>
+
+      <AlertDialog open={blockOpen} onOpenChange={setBlockOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Block {other?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They won't be able to send you messages or friend requests, and you won't see each other in search.
+              Your existing friendship will be removed. You can unblock them later from Profile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={blockUser} disabled={blocking} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {blocking ? "Blocking…" : "Block"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-2 bg-gradient-to-b from-background to-accent/20">
         {messages.length === 0 && (
