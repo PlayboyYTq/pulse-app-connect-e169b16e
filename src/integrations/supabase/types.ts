@@ -128,27 +128,89 @@ export type Database = {
           },
         ]
       }
+      group_members: {
+        Row: {
+          group_id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          last_message_at: string
+          name: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          last_message_at?: string
+          name: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          last_message_at?: string
+          name?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
-          conversation_id: string
+          conversation_id: string | null
           created_at: string
+          group_id: string | null
           id: string
           sender_id: string
           status: string
         }
         Insert: {
           content: string
-          conversation_id: string
+          conversation_id?: string | null
           created_at?: string
+          group_id?: string | null
           id?: string
           sender_id: string
           status?: string
         }
         Update: {
           content?: string
-          conversation_id?: string
+          conversation_id?: string | null
           created_at?: string
+          group_id?: string | null
           id?: string
           sender_id?: string
           status?: string
@@ -159,6 +221,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
             referencedColumns: ["id"]
           },
           {
@@ -231,6 +300,10 @@ export type Database = {
     Functions: {
       are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
       is_blocked: { Args: { _a: string; _b: string }; Returns: boolean }
+      is_group_member: {
+        Args: { _group: string; _user: string }
+        Returns: boolean
+      }
       search_user_by_phone: {
         Args: { _phone: string }
         Returns: {

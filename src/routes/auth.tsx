@@ -25,22 +25,38 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; dob?: string; email?: string; password?: string; form?: string }>({});
 
   useEffect(() => {
     if (!loading && session) navigate({ to: "/chats" });
   }, [session, loading, navigate]);
 
+  const validate = () => {
+    const next: typeof errors = {};
+    if (mode === "signup") {
+      if (!name.trim()) next.name = "Please enter your name";
+      else if (name.trim().length > 60) next.name = "Name is too long";
+      if (!dob) next.dob = "Please enter your date of birth";
+      else {
+        const d = new Date(dob);
+        if (isNaN(d.getTime()) || d > new Date()) next.dob = "Enter a valid date";
+      }
+    }
+    if (!email.trim()) next.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) next.email = "Enter a valid email";
+    if (!password) next.password = "Password is required";
+    else if (password.length < 6) next.password = "At least 6 characters";
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    if (!validate()) return;
     setBusy(true);
     try {
-      if (!email.trim() || !email.includes("@")) throw new Error("Please enter a valid email");
-      if (password.length < 6) throw new Error("Password must be at least 6 characters");
-
       if (mode === "signup") {
-        if (!name.trim()) throw new Error("Please enter your name");
-        if (!dob) throw new Error("Please enter your date of birth");
-
         const { error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -50,7 +66,7 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        toast.success("Account created — check your email to confirm");
+        toast.success("Account created");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -60,7 +76,9 @@ function AuthPage() {
         toast.success("Signed in");
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      const msg = err instanceof Error ? err.message : "Something went wrong";
+      setErrors({ form: msg });
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -84,54 +102,61 @@ function AuthPage() {
             {mode === "signin" ? "Sign in with your email and password" : "Sign up with your email"}
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-4">
             {mode === "signup" && (
               <>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="name">Full name</Label>
-                  <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" autoComplete="name" />
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Jane Doe" autoComplete="name" aria-invalid={!!errors.name} />
+                  {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="dob">Date of birth</Label>
                   <Input
                     id="dob"
                     type="date"
-                    required
                     value={dob}
                     onChange={(e) => setDob(e.target.value)}
                     max={new Date().toISOString().slice(0, 10)}
                     autoComplete="bday"
+                    aria-invalid={!!errors.dob}
                   />
+                  {errors.dob && <p className="text-xs text-destructive">{errors.dob}</p>}
                 </div>
               </>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 autoComplete="email"
+                aria-invalid={!!errors.email}
               />
+              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
                 type="password"
-                required
-                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 6 characters"
                 autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                aria-invalid={!!errors.password}
               />
+              {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
             </div>
+
+            {errors.form && (
+              <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-2">{errors.form}</p>
+            )}
 
             <Button type="submit" className="w-full h-11 rounded-xl" disabled={busy}>
               {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Create account"}
@@ -140,7 +165,7 @@ function AuthPage() {
 
           <button
             type="button"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+            onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setErrors({}); }}
             className="mt-5 text-sm text-muted-foreground hover:text-foreground w-full text-center"
           >
             {mode === "signin" ? "Don't have an account? Sign up" : "Already have an account? Sign in"}

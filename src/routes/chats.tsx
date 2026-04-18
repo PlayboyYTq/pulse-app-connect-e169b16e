@@ -12,6 +12,7 @@ import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
+import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { playMessageSound } from "@/lib/sound";
 
 export const Route = createFileRoute("/chats")({
@@ -32,8 +33,12 @@ type ConversationRow = {
 type Profile = { id: string; name: string; avatar_url: string | null; status: string };
 
 type ChatItem = {
-  conversationId: string;
-  other: Profile;
+  conversationId?: string;
+  groupId?: string;
+  isGroup: boolean;
+  title: string;
+  avatarUrl: string | null;
+  status?: string;
   lastMessage?: { content: string; created_at: string; sender_id: string };
   lastMessageAt: string;
 };
@@ -55,19 +60,30 @@ function ChatsLayout() {
 
   const loadChats = async () => {
     if (!user) return;
-    const { data: convs } = await supabase
-      .from("conversations")
-      .select("*")
-      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
-      .order("last_message_at", { ascending: false });
-    if (!convs) return;
-    const otherIds = convs.map((c: ConversationRow) => (c.user_a === user.id ? c.user_b : c.user_a));
+    const [{ data: convs }, { data: gms }] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select("*")
+        .or(`user_a.eq.${user.id},user_b.eq.${user.id}`)
+        .order("last_message_at", { ascending: false }),
+      supabase
+        .from("group_members")
+        .select("group_id, groups(id,name,avatar_url,last_message_at)")
+        .eq("user_id", user.id),
+    ]);
+    const safeConvs = (convs ?? []) as ConversationRow[];
+    const groups = (gms ?? [])
+      .map((m) => m.groups)
+      .filter(Boolean) as Array<{ id: string; name: string; avatar_url: string | null; last_message_at: string }>;
+
+    const otherIds = safeConvs.map((c) => (c.user_a === user.id ? c.user_b : c.user_a));
     const { data: profiles } = otherIds.length
       ? await supabase.from("profiles").select("id,name,avatar_url,status").in("id", otherIds)
       : { data: [] as Profile[] };
-    const lastByConv = new Map<string, { content: string; created_at: string; sender_id: string }>();
-    await Promise.all(
-      convs.map(async (c: ConversationRow) => {
+
+    const lastMap = new Map<string, { content: string; created_at: string; sender_id: string }>();
+    await Promise.all([
+      ...safeConvs.map(async (c) => {
         const { data: m } = await supabase
           .from("messages")
           .select("content,created_at,sender_id")
@@ -75,21 +91,43 @@ function ChatsLayout() {
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        if (m) lastByConv.set(c.id, m as { content: string; created_at: string; sender_id: string });
-      })
-    );
+        if (m) lastMap.set(`c:${c.id}`, m as { content: string; created_at: string; sender_id: string });
+      }),
+      ...groups.map(async (g) => {
+        const { data: m } = await supabase
+          .from("messages")
+          .select("content,created_at,sender_id")
+          .eq("group_id", g.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (m) lastMap.set(`g:${g.id}`, m as { content: string; created_at: string; sender_id: string });
+      }),
+    ]);
     const profileMap = new Map((profiles ?? []).map((p: Profile) => [p.id, p]));
-    setChats(
-      convs.map((c: ConversationRow) => {
-        const otherId = c.user_a === user.id ? c.user_b : c.user_a;
-        return {
-          conversationId: c.id,
-          other: profileMap.get(otherId) ?? { id: otherId, name: "Unknown", avatar_url: null, status: "offline" },
-          lastMessage: lastByConv.get(c.id),
-          lastMessageAt: c.last_message_at,
-        };
-      })
-    );
+    const convItems: ChatItem[] = safeConvs.map((c) => {
+      const otherId = c.user_a === user.id ? c.user_b : c.user_a;
+      const other = profileMap.get(otherId) ?? { id: otherId, name: "Unknown", avatar_url: null, status: "offline" };
+      return {
+        conversationId: c.id,
+        isGroup: false,
+        title: other.name,
+        avatarUrl: other.avatar_url,
+        status: other.status,
+        lastMessage: lastMap.get(`c:${c.id}`),
+        lastMessageAt: c.last_message_at,
+      };
+    });
+    const groupItems: ChatItem[] = groups.map((g) => ({
+      groupId: g.id,
+      isGroup: true,
+      title: g.name,
+      avatarUrl: g.avatar_url,
+      lastMessage: lastMap.get(`g:${g.id}`),
+      lastMessageAt: g.last_message_at,
+    }));
+    const merged = [...convItems, ...groupItems].sort((a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt));
+    setChats(merged);
   };
 
   const loadUnread = async () => {
@@ -99,9 +137,11 @@ function ChatsLayout() {
       .select("conversation_id")
       .neq("sender_id", user.id)
       .neq("status", "read")
+      .not("conversation_id", "is", null)
       .limit(1000);
     const counts: Record<string, number> = {};
-    (data ?? []).forEach((m: { conversation_id: string }) => {
+    (data ?? []).forEach((m: { conversation_id: string | null }) => {
+      if (!m.conversation_id) return;
       counts[m.conversation_id] = (counts[m.conversation_id] ?? 0) + 1;
     });
     setUnread(counts);
@@ -165,6 +205,8 @@ function ChatsLayout() {
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "user_blocks" }, () => loadChats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => loadChats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => loadChats())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -183,7 +225,7 @@ function ChatsLayout() {
     });
   }, [params.conversationId]);
 
-  const filtered = chats.filter((c) => c.other.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = chats.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()));
   const showSidebarOnMobile = !params.conversationId;
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
 
@@ -204,14 +246,17 @@ function ChatsLayout() {
           </div>
           <div className="flex items-center gap-1">
             {tab === "chats" && (
-              <NewChatDialog
-                open={newOpen}
-                onOpenChange={setNewOpen}
-                onCreated={(id) => {
-                  setNewOpen(false);
-                  navigate({ to: "/chats/$conversationId", params: { conversationId: id } });
-                }}
-              />
+              <>
+                <CreateGroupDialog onCreated={(id) => navigate({ to: "/groups/$groupId", params: { groupId: id } })} />
+                <NewChatDialog
+                  open={newOpen}
+                  onOpenChange={setNewOpen}
+                  onCreated={(id) => {
+                    setNewOpen(false);
+                    navigate({ to: "/chats/$conversationId", params: { conversationId: id } });
+                  }}
+                />
+              </>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -261,34 +306,42 @@ function ChatsLayout() {
                 </div>
               )}
               {filtered.map((c) => {
-                const u = unread[c.conversationId] ?? 0;
+                const key = c.isGroup ? `g:${c.groupId}` : `c:${c.conversationId}`;
+                const u = !c.isGroup && c.conversationId ? unread[c.conversationId] ?? 0 : 0;
+                const linkProps = c.isGroup
+                  ? { to: "/groups/$groupId" as const, params: { groupId: c.groupId! } }
+                  : { to: "/chats/$conversationId" as const, params: { conversationId: c.conversationId! } };
                 return (
                   <Link
-                    key={c.conversationId}
-                    to="/chats/$conversationId"
-                    params={{ conversationId: c.conversationId }}
+                    key={key}
+                    {...linkProps}
                     className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
                     activeProps={{ className: "bg-accent" }}
                   >
                     <div className="relative">
                       <Avatar className="size-12">
-                        <AvatarImage src={c.other.avatar_url ?? undefined} />
-                        <AvatarFallback>{initials(c.other.name)}</AvatarFallback>
+                        <AvatarImage src={c.avatarUrl ?? undefined} />
+                        <AvatarFallback>
+                          {c.isGroup ? <Users className="size-5" /> : initials(c.title)}
+                        </AvatarFallback>
                       </Avatar>
-                      {c.other.status === "online" && (
+                      {!c.isGroup && c.status === "online" && (
                         <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline justify-between gap-2">
-                        <span className={cn("truncate", u > 0 ? "font-semibold" : "font-medium")}>{c.other.name}</span>
+                        <span className={cn("truncate", u > 0 ? "font-semibold" : "font-medium")}>
+                          {c.title}
+                          {c.isGroup && <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">group</span>}
+                        </span>
                         <span className={cn("text-[11px] shrink-0", u > 0 ? "text-primary font-medium" : "text-muted-foreground")}>
                           {formatChatListTime(c.lastMessageAt)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <p className={cn("text-sm truncate", u > 0 ? "text-foreground" : "text-muted-foreground")}>
-                          {c.lastMessage?.content ?? "Say hi 👋"}
+                          {c.lastMessage?.content ?? (c.isGroup ? "New group — say hi 👋" : "Say hi 👋")}
                         </p>
                         {u > 0 && (
                           <span className="shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold grid place-items-center animate-scale-in">

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -90,11 +90,12 @@ function ChatView() {
     return () => { cancelled = true; };
   }, [conversationId, user?.id]);
 
+  const channelKey = useId();
   // Realtime: postgres_changes + typing broadcast
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`conv:${conversationId}:${user.id}:${Math.random().toString(36).slice(2, 8)}`, { config: { broadcast: { self: false } } })
+      .channel(`conv:${conversationId}:${user.id}:${channelKey}`, { config: { broadcast: { self: false } } })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
@@ -141,7 +142,11 @@ function ChatView() {
         setOtherTyping(false);
         if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[realtime] channel status:", status, conversationId);
+        }
+      });
     channelRef.current = channel;
     return () => {
       if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
