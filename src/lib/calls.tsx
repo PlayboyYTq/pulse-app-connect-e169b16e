@@ -71,6 +71,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const peerChannelRef = useRef<RealtimeChannel | null>(null);
   const peerChannelReadyRef = useRef(false);
   const pendingIceRef = useRef<RTCIceCandidateInit[]>([]);
+  const outgoingIceQueueRef = useRef<RTCIceCandidateInit[]>([]);
   const remoteSetRef = useRef(false);
   const callIdRef = useRef<string | null>(null);
   const peerIdRef = useRef<string | null>(null);
@@ -133,6 +134,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     localStreamRef.current = null;
     remoteStreamRef.current = null;
     pendingIceRef.current = [];
+    outgoingIceQueueRef.current = [];
     remoteSetRef.current = false;
     incomingOfferRef.current = null;
     callIdRef.current = null;
@@ -154,15 +156,30 @@ export function CallProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const flushOutgoingIce = useCallback(async () => {
+    const ch = peerChannelRef.current;
+    if (!ch || !peerChannelReadyRef.current || !user || !callIdRef.current) return;
+    const queue = outgoingIceQueueRef.current;
+    outgoingIceQueueRef.current = [];
+    for (const candidate of queue) {
+      try {
+        await ch.send({ type: "broadcast", event: "signal", payload: { type: "ice", callId: callIdRef.current, from: user.id, candidate } });
+      } catch { /* ignore */ }
+    }
+  }, [user]);
+
   const ensurePeerChannel = useCallback((peerId: string) => {
     if (peerChannelRef.current) return peerChannelRef.current;
     const ch = supabase.channel(userChannelName(peerId), { config: { broadcast: { self: false } } });
     ch.subscribe((status) => {
-      if (status === "SUBSCRIBED") peerChannelReadyRef.current = true;
+      if (status === "SUBSCRIBED") {
+        peerChannelReadyRef.current = true;
+        void flushOutgoingIce();
+      }
     });
     peerChannelRef.current = ch;
     return ch;
-  }, []);
+  }, [flushOutgoingIce]);
 
   const flushIce = useCallback(async () => {
     const pc = pcRef.current;
@@ -190,12 +207,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
     pc.onicecandidate = (e) => {
       if (e.candidate && callIdRef.current && peerIdRef.current && user) {
-        void sendToPeer({
-          type: "ice",
-          callId: callIdRef.current,
-          from: user.id,
-          candidate: e.candidate.toJSON(),
-        });
+        const candidate = e.candidate.toJSON();
+        if (peerChannelReadyRef.current) {
+          void sendToPeer({ type: "ice", callId: callIdRef.current, from: user.id, candidate });
+        } else {
+          outgoingIceQueueRef.current.push(candidate);
+        }
       }
     };
 
