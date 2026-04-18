@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,6 +30,7 @@ function isVerifiedEmailUser(session: Session | null) {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,26 +41,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let initialSessionResolved = false;
 
-    const syncSession = (nextSession: Session | null) => {
+    const applySession = (nextSession: Session | null) => {
       if (!active) return;
       setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+
       if (nextSession?.user && isVerifiedEmailUser(nextSession)) {
         void loadProfile(nextSession.user.id);
       } else {
         setProfile(null);
       }
-      setLoading(false);
     };
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      syncSession(nextSession);
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!initialSessionResolved && event === "INITIAL_SESSION") return;
+      applySession(nextSession);
+      if (initialSessionResolved) {
+        setLoading(false);
+      }
     });
 
     void supabase.auth.getSession().then(({ data }) => {
-      syncSession(data.session);
+      initialSessionResolved = true;
+      applySession(data.session);
+      setLoading(false);
     });
 
     return () => {
@@ -68,11 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const verifiedUser = useMemo(() => (isVerifiedEmailUser(session) ? session!.user : null), [session]);
-
   useEffect(() => {
-    if (!verifiedUser) return;
-    const userId = verifiedUser.id;
+    if (!user) return;
+    const userId = user.id;
     const stamp = () => new Date().toISOString();
     const setOnline = () => supabase.from("profiles").update({ status: "online", last_seen: stamp() }).eq("id", userId);
     const setOffline = () => supabase.from("profiles").update({ status: "offline", last_seen: stamp() }).eq("id", userId);
@@ -92,28 +99,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("beforeunload", setOffline);
       void setOffline();
     };
-  }, [verifiedUser?.id]);
+  }, [user?.id]);
 
   return (
     <Ctx.Provider
       value={{
         session,
-        user: verifiedUser,
+        user,
         profile,
         loading,
         signOut: async () => {
           try {
-            if (verifiedUser) {
-              await supabase.from("profiles").update({ status: "offline", last_seen: new Date().toISOString() }).eq("id", verifiedUser.id);
+            if (user) {
+              await supabase.from("profiles").update({ status: "offline", last_seen: new Date().toISOString() }).eq("id", user.id);
             }
           } catch {
-            // best-effort presence update
           } finally {
             await supabase.auth.signOut();
           }
         },
         refreshProfile: async () => {
-          if (verifiedUser) await loadProfile(verifiedUser.id);
+          if (user && isVerifiedEmailUser(session)) {
+            await loadProfile(user.id);
+          }
         },
       }}
     >
