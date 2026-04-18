@@ -235,6 +235,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const callId = `${user.id}:${peer.id}:${Date.now()}`;
     callIdRef.current = callId;
     peerIdRef.current = peer.id;
+    callRoleRef.current = "caller";
+    callModeRef.current = mode;
+    wasConnectedRef.current = false;
     setState({
       phase: "outgoing",
       mode,
@@ -310,17 +313,26 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const rejectCall = useCallback(() => {
     if (!user || !state.callId) return;
     void sendToPeer({ type: "reject", callId: state.callId, from: user.id });
+    closeIncomingNotif();
+    void logCallEvent("rejected", callModeRef.current, "callee", peerIdRef.current);
     setState((s) => ({ ...s, phase: "ended" }));
     cleanup();
-  }, [user, state.callId, sendToPeer, cleanup]);
+  }, [user, state.callId, sendToPeer, cleanup, closeIncomingNotif, logCallEvent]);
 
   const endCall = useCallback(() => {
     if (user && state.callId) {
       void sendToPeer({ type: "end", callId: state.callId, from: user.id });
     }
+    closeIncomingNotif();
+    if (wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+      void logCallEvent("ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+    } else if (callRoleRef.current === "caller" && peerIdRef.current) {
+      // Caller hung up before connect = no answer / missed for callee
+      void logCallEvent("missed", callModeRef.current, "caller", peerIdRef.current);
+    }
     setState((s) => ({ ...s, phase: "ended" }));
     cleanup();
-  }, [user, state.callId, sendToPeer, cleanup]);
+  }, [user, state.callId, sendToPeer, cleanup, closeIncomingNotif, logCallEvent]);
 
   const toggleMic = useCallback(() => {
     const s = localStreamRef.current;
@@ -363,6 +375,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
           incomingOfferRef.current = { sdp: sig.sdp, mode: sig.mode };
           callIdRef.current = sig.callId;
           peerIdRef.current = sig.from.id;
+          callRoleRef.current = "callee";
+          callModeRef.current = sig.mode;
+          wasConnectedRef.current = false;
           ensurePeerChannel(sig.from.id);
           setState({
             phase: "incoming",
@@ -374,6 +389,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
             micMuted: false,
             cameraOff: false,
             errorMessage: null,
+          });
+          // OS-level notification when app is backgrounded
+          incomingNotifRef.current = notifyAlways({
+            title: `Incoming ${sig.mode === "video" ? "video" : "voice"} call`,
+            body: `${sig.from.name} is calling…`,
+            icon: sig.from.avatar_url ?? "/icon-192.png",
+            tag: `call:${sig.callId}`,
+            requireInteraction: true,
           });
           return;
         }
@@ -400,6 +423,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
             try { await pc.addIceCandidate(sig.candidate); } catch { /* ignore */ }
           }
         } else if (sig.type === "reject" || sig.type === "end") {
+          closeIncomingNotif();
+          // If the remote rejected/ended before we ever connected, log as missed for callee / no-answer
+          if (!wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+            const outcome = sig.type === "reject" ? "rejected" : (callRoleRef.current === "caller" ? "missed" : "ended");
+            void logCallEvent(outcome as "missed" | "rejected" | "ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+          } else if (wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+            void logCallEvent("ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+          }
           setState((s) => ({ ...s, phase: "ended" }));
           cleanup();
         }
@@ -413,7 +444,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       try { supabase.removeChannel(ch); } catch { /* ignore */ }
       myChannelRef.current = null;
     };
-  }, [user, ensurePeerChannel, flushIce, cleanup, state.phase]);
+  }, [user, ensurePeerChannel, flushIce, cleanup, state.phase, closeIncomingNotif, logCallEvent]);
 
   // Auto-clear "ended" after a beat so UI dismisses
   useEffect(() => {
