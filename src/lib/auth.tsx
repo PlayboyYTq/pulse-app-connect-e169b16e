@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const syncSession = (nextSession: Session | null) => {
       if (!active) return;
       setSession(nextSession);
-      if (isVerifiedEmailUser(nextSession)) {
+      if (nextSession?.user && isVerifiedEmailUser(nextSession)) {
         void loadProfile(nextSession.user.id);
       } else {
         setProfile(null);
