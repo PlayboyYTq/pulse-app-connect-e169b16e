@@ -29,6 +29,31 @@ type Message = {
 
 type Profile = { id: string; name: string; avatar_url: string | null; status: string; last_seen: string };
 
+function mergeMessages(current: Message[], incoming: Message[]) {
+  const next = [...current];
+
+  for (const message of incoming) {
+    const existingIndex = next.findIndex((item) => item.id === message.id);
+    if (existingIndex !== -1) {
+      next[existingIndex] = message;
+      continue;
+    }
+
+    const optimisticIndex = next.findIndex(
+      (item) => item.id.startsWith("temp-") && item.sender_id === message.sender_id && item.content === message.content,
+    );
+
+    if (optimisticIndex !== -1) {
+      next[optimisticIndex] = message;
+      continue;
+    }
+
+    next.push(message);
+  }
+
+  return next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+}
+
 function ChatView() {
   const { conversationId } = useParams({ from: "/chats/$conversationId" });
   const navigate = useNavigate();
@@ -42,9 +67,13 @@ function ChatView() {
   const [blocking, setBlocking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const realtimeReadyRef = useRef(false);
+  const latestMessageAtRef = useRef<string | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
   const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [realtimeHealthy, setRealtimeHealthy] = useState(false);
 
   const blockUser = async () => {
     if (!user || !other) return;
@@ -63,6 +92,7 @@ function ChatView() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    setInitialLoaded(false);
     (async () => {
       const { data: conv } = await supabase
         .from("conversations")
@@ -78,6 +108,7 @@ function ChatView() {
       if (cancelled) return;
       setOther(prof as Profile);
       setMessages((msgs ?? []) as Message[]);
+      setInitialLoaded(true);
       // Mark all incoming as read (covers "sent" + "delivered")
       const unread = (msgs ?? []).filter((m) => m.sender_id !== user.id && m.status !== "read");
       if (unread.length) {
@@ -91,6 +122,11 @@ function ChatView() {
   }, [conversationId, user?.id]);
 
   const channelKey = useId();
+
+  useEffect(() => {
+    latestMessageAtRef.current = messages.length ? messages[messages.length - 1].created_at : null;
+  }, [messages]);
+
   // Realtime: postgres_changes + typing broadcast
   useEffect(() => {
     if (!user) return;
@@ -101,17 +137,7 @@ function ChatView() {
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           const m = payload.new as Message;
-          setMessages((prev) => {
-            if (prev.some((x) => x.id === m.id)) return prev;
-            // Replace optimistic temp message from same sender with same content
-            const tempIdx = prev.findIndex((x) => x.id.startsWith("temp-") && x.sender_id === m.sender_id && x.content === m.content);
-            if (tempIdx !== -1) {
-              const next = prev.slice();
-              next[tempIdx] = m;
-              return next;
-            }
-            return [...prev, m];
-          });
+          setMessages((prev) => mergeMessages(prev, [m]));
           if (m.sender_id !== user.id) {
             // Chat is open → mark as read immediately
             await supabase.from("messages").update({ status: "read" }).eq("id", m.id);
@@ -123,13 +149,8 @@ function ChatView() {
         { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         (payload) => {
           const m = payload.new as Message;
-          setMessages((prev) => prev.map((x) => (x.id === m.id ? m : x)));
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${other?.id ?? "00000000-0000-0000-0000-000000000000"}` },
-        (payload) => setOther(payload.new as Profile)
+          setMessages((prev) => mergeMessages(prev, [m]));
+        },
       )
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         if (!payload || payload.userId === user.id) return;
@@ -143,18 +164,83 @@ function ChatView() {
         if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
       })
       .subscribe((status) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        if (status === "SUBSCRIBED") {
+          realtimeReadyRef.current = true;
+          setRealtimeHealthy(true);
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          realtimeReadyRef.current = false;
+          setRealtimeHealthy(false);
           console.warn("[realtime] channel status:", status, conversationId);
         }
       });
     channelRef.current = channel;
     return () => {
+      realtimeReadyRef.current = false;
+      setRealtimeHealthy(false);
       if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [conversationId, user?.id, other?.id]);
+  }, [conversationId, user?.id, channelKey]);
+
+  useEffect(() => {
+    if (!other?.id) return;
+    const profileChannel = supabase
+      .channel(`conv-profile:${conversationId}:${other.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${other.id}` },
+        (payload) => setOther(payload.new as Profile),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileChannel);
+    };
+  }, [conversationId, other?.id]);
+
+  useEffect(() => {
+    if (!user || !initialLoaded || realtimeHealthy) return;
+
+    let cancelled = false;
+
+    const syncRecentMessages = async () => {
+      let query = supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true })
+        .limit(500);
+
+      if (latestMessageAtRef.current) {
+        query = query.gt("created_at", latestMessageAtRef.current);
+      }
+
+      const { data, error } = await query;
+      if (cancelled || error || !data?.length) return;
+
+      const incoming = data as Message[];
+      setMessages((prev) => mergeMessages(prev, incoming));
+
+      const unreadIds = incoming.filter((message) => message.sender_id !== user.id && message.status !== "read").map((message) => message.id);
+      if (unreadIds.length) {
+        await supabase.from("messages").update({ status: "read" }).in("id", unreadIds);
+      }
+    };
+
+    void syncRecentMessages();
+    const intervalId = window.setInterval(() => {
+      void syncRecentMessages();
+    }, 750);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [conversationId, initialLoaded, realtimeHealthy, user?.id]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -162,7 +248,7 @@ function ChatView() {
 
   const broadcastTyping = (event: "typing" | "stop_typing") => {
     const ch = channelRef.current;
-    if (!ch || !user) return;
+    if (!ch || !user || !realtimeReadyRef.current) return;
     ch.send({ type: "broadcast", event, payload: { userId: user.id } }).catch(() => {});
   };
 

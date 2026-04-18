@@ -233,11 +233,11 @@ function ChatsLayout() {
     <div className="h-screen flex bg-background">
       <aside
         className={cn(
-          "w-full md:w-[360px] md:border-r border-border flex flex-col bg-sidebar",
+          "surface-panel w-full md:w-[360px] md:border-r border-border/70 flex flex-col bg-sidebar/80 backdrop-blur-xl",
           showSidebarOnMobile ? "flex" : "hidden md:flex"
         )}
       >
-        <header className="px-4 py-3 flex items-center justify-between border-b border-border">
+        <header className="px-4 py-3 flex items-center justify-between border-b border-border/70">
           <div className="flex items-center gap-2">
             <div className="size-9 rounded-2xl bg-primary text-primary-foreground grid place-items-center shadow shadow-primary/20">
               <MessageCircle className="size-4" />
@@ -282,7 +282,7 @@ function ChatsLayout() {
 
         {/* Top tabs */}
         <div className="px-3 pt-3">
-          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60">
+          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/60 p-1.5">
             <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" badge={totalUnread} />
             <TabBtn active={tab === "friends"} onClick={() => setTab("friends")} icon={<Users className="size-4" />} label="Friends" badge={pendingRequests} />
           </div>
@@ -293,7 +293,7 @@ function ChatsLayout() {
             <div className="px-3 py-2">
               <div className="relative">
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chats" className="pl-9 h-10 rounded-xl bg-muted/60 border-transparent focus-visible:bg-background" />
+                 <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search chats" className="h-11 rounded-2xl border-border/60 bg-background/70 pl-9" />
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -315,7 +315,7 @@ function ChatsLayout() {
                   <Link
                     key={key}
                     {...linkProps}
-                    className="flex items-center gap-3 px-3 py-3 hover:bg-accent/60 transition-colors"
+                    className="mx-2 flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-accent/60"
                     activeProps={{ className: "bg-accent" }}
                   >
                     <div className="relative">
@@ -360,13 +360,13 @@ function ChatsLayout() {
         )}
       </aside>
 
-      <main className={cn("flex-1 flex flex-col", showSidebarOnMobile ? "hidden md:flex" : "flex")}>
+      <main className={cn("flex-1 flex flex-col overflow-hidden", showSidebarOnMobile ? "hidden md:flex" : "flex")}>
         {params.conversationId ? (
           <Outlet />
         ) : (
-          <div className="flex-1 grid place-items-center bg-gradient-to-br from-background to-accent/30">
-            <div className="text-center max-w-sm px-6">
-              <div className="mx-auto size-16 rounded-3xl bg-primary/10 text-primary grid place-items-center mb-4">
+            <div className="flex-1 grid place-items-center bg-gradient-to-br from-background via-background to-accent/20 px-6">
+             <div className="surface-glass text-center max-w-sm rounded-[2rem] px-8 py-10">
+               <div className="mx-auto mb-4 grid size-16 place-items-center rounded-3xl bg-primary/10 text-primary">
                 <MessageCircle className="size-7" />
               </div>
               <h2 className="text-xl font-semibold tracking-tight">Your messages live here</h2>
