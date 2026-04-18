@@ -72,6 +72,7 @@ function ChatView() {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [forwardPayload, setForwardPayload] = useState<ForwardPayload | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const realtimeReadyRef = useRef(false);
