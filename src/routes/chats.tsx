@@ -33,8 +33,12 @@ type ConversationRow = {
 type Profile = { id: string; name: string; avatar_url: string | null; status: string };
 
 type ChatItem = {
-  conversationId: string;
-  other: Profile;
+  conversationId?: string;
+  groupId?: string;
+  isGroup: boolean;
+  title: string;
+  avatarUrl: string | null;
+  status?: string;
   lastMessage?: { content: string; created_at: string; sender_id: string };
   lastMessageAt: string;
 };
