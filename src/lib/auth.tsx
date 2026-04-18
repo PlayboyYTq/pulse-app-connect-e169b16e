@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         },
         refreshProfile: async () => {
-          if (user && isVerifiedEmailUser(session)) {
+          if (user) {
             await loadProfile(user.id);
           }
         },
