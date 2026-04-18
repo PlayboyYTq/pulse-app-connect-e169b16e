@@ -8,8 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { initials } from "@/lib/format";
-import { ArrowLeft, Camera, ShieldOff, Loader2 } from "lucide-react";
+import { ArrowLeft, Camera, ShieldOff, Loader2, LogOut, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppLoader } from "@/components/AppLoader";
 
