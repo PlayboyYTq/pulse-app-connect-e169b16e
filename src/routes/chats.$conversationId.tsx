@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
@@ -29,6 +29,8 @@ type Message = {
   created_at: string;
   reply_to_message_id: string | null;
   deleted_for_everyone: boolean;
+  media_url: string | null;
+  media_type: string | null;
 };
 
 type Reaction = { id: string; message_id: string; user_id: string; emoji: string };
@@ -61,6 +63,8 @@ function ChatView() {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blocking, setBlocking] = useState(false);
@@ -263,6 +267,8 @@ function ChatView() {
       created_at: new Date().toISOString(),
       reply_to_message_id: replySnapshot?.id ?? null,
       deleted_for_everyone: false,
+      media_url: null,
+      media_type: null,
     };
     setMessages((prev) => [...prev, optimistic]);
     const { data, error } = await supabase
@@ -282,6 +288,41 @@ function ChatView() {
       });
     }
     setSending(false);
+  };
+
+  const sendAttachment = async (file: File) => {
+    if (!user || uploading) return;
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("Max file size is 25MB");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("chat-media").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("chat-media").getPublicUrl(path);
+      const url = pub.publicUrl;
+      const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "file";
+      const content = kind === "file" ? file.name : "";
+      const { error: insErr } = await supabase.from("messages").insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content,
+        media_url: url,
+        media_type: kind,
+      });
+      if (insErr) throw insErr;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const toggleReaction = async (messageId: string, emoji: string) => {
@@ -494,7 +535,25 @@ function ChatView() {
                         <Trash2 className="size-3.5" /> This message was deleted
                       </div>
                     ) : (
-                      <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                      <>
+                        {m.media_url && m.media_type === "image" && (
+                          <a href={m.media_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
+                            <img src={m.media_url} alt="attachment" className="rounded-xl max-h-72 max-w-full mb-1 object-cover" loading="lazy" />
+                          </a>
+                        )}
+                        {m.media_url && m.media_type === "video" && (
+                          <video src={m.media_url} controls className="rounded-xl max-h-72 max-w-full mb-1" onClick={(e) => e.stopPropagation()} />
+                        )}
+                        {m.media_url && m.media_type === "file" && (
+                          <a href={m.media_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className={cn("flex items-center gap-2 rounded-xl px-2.5 py-2 mb-1 border", mine ? "border-primary-foreground/30 bg-primary-foreground/10" : "border-border bg-background/60")}>
+                            <FileText className="size-5 shrink-0" />
+                            <span className="truncate text-sm">{m.content || "Document"}</span>
+                          </a>
+                        )}
+                        {m.content && !(m.media_url && m.media_type === "file") && (
+                          <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                        )}
+                      </>
                     )}
                     <div className={cn("flex items-center gap-1 mt-1 text-[10px]", mine ? "text-primary-foreground/70 justify-end" : "text-muted-foreground")}>
                       <span>{formatTime(m.created_at)}</span>
@@ -591,6 +650,35 @@ function ChatView() {
       )}
 
       <form onSubmit={send} className="p-3 md:p-4 border-t border-border bg-card/50 backdrop-blur flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,application/pdf,.doc,.docx,.txt,.zip"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void sendAttachment(f);
+          }}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-11 rounded-2xl shrink-0"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          aria-label="Attach file"
+        >
+          {uploading ? (
+            <span className="inline-flex gap-0.5">
+              <span className="size-1 rounded-full bg-foreground/60 animate-bounce [animation-delay:-0.3s]" />
+              <span className="size-1 rounded-full bg-foreground/60 animate-bounce [animation-delay:-0.15s]" />
+              <span className="size-1 rounded-full bg-foreground/60 animate-bounce" />
+            </span>
+          ) : (
+            <Paperclip className="size-5" />
+          )}
+        </Button>
         <Input
           ref={inputRef}
           value={draft}

@@ -240,7 +240,7 @@ function AuthPage() {
           </form>
         </Card>
 
-        <section className="surface-panel relative order-1 overflow-hidden rounded-[2rem] p-8 text-center lg:order-2 lg:min-h-[720px] lg:p-10">
+        <section className="surface-panel relative order-1 hidden overflow-hidden rounded-[2rem] p-8 text-center lg:order-2 lg:flex lg:min-h-[720px] lg:p-10">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,color-mix(in_oklab,var(--color-primary)_18%,white_82%),transparent_22%),radial-gradient(circle_at_62%_46%,color-mix(in_oklab,var(--color-accent)_42%,white_58%),transparent_28%),linear-gradient(180deg,color-mix(in_oklab,white_72%,var(--color-accent)_28%),color-mix(in_oklab,white_88%,var(--color-background)_12%))]" />
           <div className="relative flex h-full flex-col items-center justify-center">
             <div className="mb-8 grid size-28 place-items-center rounded-[2rem] bg-card/80 text-primary shadow-[0_30px_80px_-30px_color-mix(in_oklab,var(--color-primary)_30%,transparent)] backdrop-blur">
