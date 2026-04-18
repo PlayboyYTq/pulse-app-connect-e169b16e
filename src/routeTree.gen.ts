@@ -17,6 +17,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as ChatsConversationIdRouteImport } from './routes/chats.$conversationId'
+import { Route as ApiPushSendRouteImport } from './routes/api/push.send'
 
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
@@ -58,6 +59,11 @@ const ChatsConversationIdRoute = ChatsConversationIdRouteImport.update({
   path: '/$conversationId',
   getParentRoute: () => ChatsRoute,
 } as any)
+const ApiPushSendRoute = ApiPushSendRouteImport.update({
+  id: '/api/push/send',
+  path: '/api/push/send',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/api/push/send': typeof ApiPushSendRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/api/push/send': typeof ApiPushSendRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
+  '/api/push/send': typeof ApiPushSendRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/chats/$conversationId'
     | '/groups/$groupId'
+    | '/api/push/send'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/chats/$conversationId'
     | '/groups/$groupId'
+    | '/api/push/send'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/profile'
     | '/chats/$conversationId'
     | '/groups/$groupId'
+    | '/api/push/send'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   InstallRoute: typeof InstallRoute
   ProfileRoute: typeof ProfileRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
+  ApiPushSendRoute: typeof ApiPushSendRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -191,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatsConversationIdRouteImport
       parentRoute: typeof ChatsRoute
     }
+    '/api/push/send': {
+      id: '/api/push/send'
+      path: '/api/push/send'
+      fullPath: '/api/push/send'
+      preLoaderRoute: typeof ApiPushSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -212,6 +232,7 @@ const rootRouteChildren: RootRouteChildren = {
   InstallRoute: InstallRoute,
   ProfileRoute: ProfileRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,
+  ApiPushSendRoute: ApiPushSendRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
