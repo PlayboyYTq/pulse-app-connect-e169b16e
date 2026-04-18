@@ -14,9 +14,11 @@ import { Route as InstallRouteImport } from './routes/install'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AskifyRouteImport } from './routes/askify'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as ChatsConversationIdRouteImport } from './routes/chats.$conversationId'
+import { Route as ApiAskifyRouteImport } from './routes/api/askify'
 import { Route as ApiPushSendRouteImport } from './routes/api/push.send'
 
 const ProfileRoute = ProfileRouteImport.update({
@@ -44,6 +46,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AskifyRoute = AskifyRouteImport.update({
+  id: '/askify',
+  path: '/askify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -59,6 +66,11 @@ const ChatsConversationIdRoute = ChatsConversationIdRouteImport.update({
   path: '/$conversationId',
   getParentRoute: () => ChatsRoute,
 } as any)
+const ApiAskifyRoute = ApiAskifyRouteImport.update({
+  id: '/api/askify',
+  path: '/api/askify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPushSendRoute = ApiPushSendRouteImport.update({
   id: '/api/push/send',
   path: '/api/push/send',
@@ -67,22 +79,26 @@ const ApiPushSendRoute = ApiPushSendRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/askify': typeof AskifyRoute
   '/auth': typeof AuthRoute
   '/chats': typeof ChatsRouteWithChildren
   '/download': typeof DownloadRoute
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
+  '/api/askify': typeof ApiAskifyRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/askify': typeof AskifyRoute
   '/auth': typeof AuthRoute
   '/chats': typeof ChatsRouteWithChildren
   '/download': typeof DownloadRoute
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
+  '/api/askify': typeof ApiAskifyRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -90,11 +106,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/askify': typeof AskifyRoute
   '/auth': typeof AuthRoute
   '/chats': typeof ChatsRouteWithChildren
   '/download': typeof DownloadRoute
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
+  '/api/askify': typeof ApiAskifyRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -103,33 +121,39 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/askify'
     | '/auth'
     | '/chats'
     | '/download'
     | '/install'
     | '/profile'
+    | '/api/askify'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/askify'
     | '/auth'
     | '/chats'
     | '/download'
     | '/install'
     | '/profile'
+    | '/api/askify'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
   id:
     | '__root__'
     | '/'
+    | '/askify'
     | '/auth'
     | '/chats'
     | '/download'
     | '/install'
     | '/profile'
+    | '/api/askify'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -137,11 +161,13 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AskifyRoute: typeof AskifyRoute
   AuthRoute: typeof AuthRoute
   ChatsRoute: typeof ChatsRouteWithChildren
   DownloadRoute: typeof DownloadRoute
   InstallRoute: typeof InstallRoute
   ProfileRoute: typeof ProfileRoute
+  ApiAskifyRoute: typeof ApiAskifyRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
   ApiPushSendRoute: typeof ApiPushSendRoute
 }
@@ -183,6 +209,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/askify': {
+      id: '/askify'
+      path: '/askify'
+      fullPath: '/askify'
+      preLoaderRoute: typeof AskifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -203,6 +236,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/chats/$conversationId'
       preLoaderRoute: typeof ChatsConversationIdRouteImport
       parentRoute: typeof ChatsRoute
+    }
+    '/api/askify': {
+      id: '/api/askify'
+      path: '/api/askify'
+      fullPath: '/api/askify'
+      preLoaderRoute: typeof ApiAskifyRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/push/send': {
       id: '/api/push/send'
@@ -226,14 +266,25 @@ const ChatsRouteWithChildren = ChatsRoute._addFileChildren(ChatsRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AskifyRoute: AskifyRoute,
   AuthRoute: AuthRoute,
   ChatsRoute: ChatsRouteWithChildren,
   DownloadRoute: DownloadRoute,
   InstallRoute: InstallRoute,
   ProfileRoute: ProfileRoute,
+  ApiAskifyRoute: ApiAskifyRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,
   ApiPushSendRoute: ApiPushSendRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
