@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -24,6 +24,10 @@ type AuthCtx = {
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
+function isVerifiedEmailUser(session: Session | null) {
+  return Boolean(session?.user?.email_confirmed_at);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -35,59 +39,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let active = true;
+
     const syncSession = (nextSession: Session | null) => {
+      if (!active) return;
       setSession(nextSession);
-      if (nextSession?.user) {
+      if (isVerifiedEmailUser(nextSession)) {
         void loadProfile(nextSession.user.id);
       } else {
         setProfile(null);
       }
+      setLoading(false);
     };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
-      syncSession(s);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      syncSession(nextSession);
     });
 
     void supabase.auth.getSession().then(({ data }) => {
       syncSession(data.session);
-      setLoading(false);
     });
 
-    return () => sub.subscription.unsubscribe();
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Online presence
+  const verifiedUser = useMemo(() => (isVerifiedEmailUser(session) ? session!.user : null), [session]);
+
   useEffect(() => {
-    if (!session?.user) return;
-    const userId = session.user.id;
-    const setOnline = () =>
-      supabase.from("profiles").update({ status: "online", last_seen: new Date().toISOString() }).eq("id", userId);
-    const setOffline = () =>
-      supabase.from("profiles").update({ status: "offline", last_seen: new Date().toISOString() }).eq("id", userId);
-    setOnline();
-    const interval = setInterval(setOnline, 30000);
-    const onHide = () => document.visibilityState === "hidden" && setOffline();
+    if (!verifiedUser) return;
+    const userId = verifiedUser.id;
+    const stamp = () => new Date().toISOString();
+    const setOnline = () => supabase.from("profiles").update({ status: "online", last_seen: stamp() }).eq("id", userId);
+    const setOffline = () => supabase.from("profiles").update({ status: "offline", last_seen: stamp() }).eq("id", userId);
+
+    void setOnline();
+    const interval = setInterval(() => void setOnline(), 30000);
+    const onHide = () => {
+      if (document.visibilityState === "hidden") void setOffline();
+    };
+
     document.addEventListener("visibilitychange", onHide);
     window.addEventListener("beforeunload", setOffline);
+
     return () => {
       clearInterval(interval);
       document.removeEventListener("visibilitychange", onHide);
       window.removeEventListener("beforeunload", setOffline);
-      setOffline();
+      void setOffline();
     };
-  }, [session?.user?.id]);
+  }, [verifiedUser?.id]);
 
   return (
     <Ctx.Provider
       value={{
         session,
-        user: session?.user ?? null,
+        user: verifiedUser,
         profile,
         loading,
         signOut: async () => {
           try {
-            if (session?.user) {
-              await supabase.from("profiles").update({ status: "offline", last_seen: new Date().toISOString() }).eq("id", session.user.id);
+            if (verifiedUser) {
+              await supabase.from("profiles").update({ status: "offline", last_seen: new Date().toISOString() }).eq("id", verifiedUser.id);
             }
           } catch {
             // best-effort presence update
@@ -95,7 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             await supabase.auth.signOut();
           }
         },
-        refreshProfile: async () => session?.user && loadProfile(session.user.id),
+        refreshProfile: async () => {
+          if (verifiedUser) await loadProfile(verifiedUser.id);
+        },
       }}
     >
       {children}
