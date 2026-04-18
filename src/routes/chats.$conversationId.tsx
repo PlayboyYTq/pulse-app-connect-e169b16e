@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
@@ -26,32 +27,26 @@ type Message = {
   content: string;
   status: "sent" | "delivered" | "read";
   created_at: string;
+  reply_to_message_id: string | null;
+  deleted_for_everyone: boolean;
 };
 
+type Reaction = { id: string; message_id: string; user_id: string; emoji: string };
 type Profile = { id: string; name: string; avatar_url: string | null; status: string; last_seen: string };
+
+const REACTION_EMOJIS = ["❤️", "👍", "😂", "😮", "😢", "🙏"];
 
 function mergeMessages(current: Message[], incoming: Message[]) {
   const next = [...current];
-
   for (const message of incoming) {
     const existingIndex = next.findIndex((item) => item.id === message.id);
-    if (existingIndex !== -1) {
-      next[existingIndex] = message;
-      continue;
-    }
-
+    if (existingIndex !== -1) { next[existingIndex] = message; continue; }
     const optimisticIndex = next.findIndex(
       (item) => item.id.startsWith("temp-") && item.sender_id === message.sender_id && item.content === message.content,
     );
-
-    if (optimisticIndex !== -1) {
-      next[optimisticIndex] = message;
-      continue;
-    }
-
+    if (optimisticIndex !== -1) { next[optimisticIndex] = message; continue; }
     next.push(message);
   }
-
   return next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 }
 
@@ -62,11 +57,16 @@ function ChatView() {
   const { startCall, phase: callPhase } = useCall();
   const [other, setOther] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const realtimeReadyRef = useRef(false);
@@ -74,14 +74,14 @@ function ChatView() {
   const lastTypingSentRef = useRef(0);
   const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [channelVersion, setChannelVersion] = useState(0);
 
   const blockUser = async () => {
     if (!user || !other) return;
     setBlocking(true);
-    const { error } = await supabase
-      .from("user_blocks")
-      .insert({ blocker_id: user.id, blocked_id: other.id });
+    const { error } = await supabase.from("user_blocks").insert({ blocker_id: user.id, blocked_id: other.id });
     setBlocking(false);
     if (error) return toast.error(error.message);
     toast.success(`${other.name} has been blocked`);
@@ -89,16 +89,12 @@ function ChatView() {
     navigate({ to: "/chats" });
   };
 
-  // Load conversation + other user + messages
+  // Load conversation, other user, messages, reactions, hidden
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     (async () => {
-      const { data: conv } = await supabase
-        .from("conversations")
-        .select("user_a,user_b")
-        .eq("id", conversationId)
-        .maybeSingle();
+      const { data: conv } = await supabase.from("conversations").select("user_a,user_b").eq("id", conversationId).maybeSingle();
       if (!conv || cancelled) return;
       const otherId = conv.user_a === user.id ? conv.user_b : conv.user_a;
       const [{ data: prof }, { data: msgs }] = await Promise.all([
@@ -107,14 +103,23 @@ function ChatView() {
       ]);
       if (cancelled) return;
       setOther(prof as Profile);
-      setMessages((msgs ?? []) as Message[]);
-      // Mark all incoming as read (covers "sent" + "delivered")
-      const unread = (msgs ?? []).filter((m) => m.sender_id !== user.id && m.status !== "read");
+      const list = (msgs ?? []) as Message[];
+      setMessages(list);
+
+      const ids = list.map((m) => m.id);
+      if (ids.length) {
+        const [{ data: rx }, { data: del }] = await Promise.all([
+          supabase.from("message_reactions").select("*").in("message_id", ids),
+          supabase.from("message_deletions").select("message_id").in("message_id", ids).eq("user_id", user.id),
+        ]);
+        if (cancelled) return;
+        setReactions((rx ?? []) as Reaction[]);
+        setHiddenIds(new Set((del ?? []).map((d) => d.message_id)));
+      }
+
+      const unread = list.filter((m) => m.sender_id !== user.id && m.status !== "read");
       if (unread.length) {
-        await supabase
-          .from("messages")
-          .update({ status: "read" })
-          .in("id", unread.map((m) => m.id));
+        await supabase.from("messages").update({ status: "read" }).in("id", unread.map((m) => m.id));
       }
     })();
     return () => { cancelled = true; };
@@ -122,7 +127,7 @@ function ChatView() {
 
   const channelKey = useId();
 
-  // Realtime: postgres_changes + typing broadcast
+  // Realtime
   useEffect(() => {
     if (!user) return;
     let disposed = false;
@@ -130,32 +135,38 @@ function ChatView() {
       if (disposed || reconnectTimerRef.current) return;
       reconnectTimerRef.current = setTimeout(() => {
         reconnectTimerRef.current = null;
-        setChannelVersion((value) => value + 1);
+        setChannelVersion((v) => v + 1);
       }, 1000);
     };
 
     const channel = supabase
       .channel(`conv:${conversationId}:${user.id}:${channelKey}`, { config: { broadcast: { self: false } } })
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
-        async (payload) => {
-          const m = payload.new as Message;
-          setMessages((prev) => mergeMessages(prev, [m]));
-          if (m.sender_id !== user.id) {
-            // Chat is open → mark as read immediately
-            await supabase.from("messages").update({ status: "read" }).eq("id", m.id);
-          }
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, async (payload) => {
+        const m = payload.new as Message;
+        setMessages((prev) => mergeMessages(prev, [m]));
+        if (m.sender_id !== user.id) {
+          await supabase.from("messages").update({ status: "read" }).eq("id", m.id);
         }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const m = payload.new as Message;
-          setMessages((prev) => mergeMessages(prev, [m]));
-        },
-      )
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
+        const m = payload.new as Message;
+        setMessages((prev) => mergeMessages(prev, [m]));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (payload) => {
+        const old = payload.old as { id?: string };
+        if (!old?.id) return;
+        setMessages((prev) => prev.filter((m) => m.id !== old.id));
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, (payload) => {
+        if (payload.eventType === "INSERT") {
+          const r = payload.new as Reaction;
+          setReactions((prev) => (prev.some((x) => x.id === r.id) ? prev : [...prev, r]));
+        } else if (payload.eventType === "DELETE") {
+          const old = payload.old as { id?: string };
+          if (!old?.id) return;
+          setReactions((prev) => prev.filter((r) => r.id !== old.id));
+        }
+      })
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         if (!payload || payload.userId === user.id) return;
         setOtherTyping(true);
@@ -170,26 +181,19 @@ function ChatView() {
       .subscribe((status) => {
         if (status === "SUBSCRIBED") {
           realtimeReadyRef.current = true;
-          if (reconnectTimerRef.current) {
-            clearTimeout(reconnectTimerRef.current);
-            reconnectTimerRef.current = null;
-          }
+          if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
           return;
         }
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
           realtimeReadyRef.current = false;
           scheduleReconnect();
-          console.warn("[realtime] channel status:", status, conversationId);
         }
       });
     channelRef.current = channel;
     return () => {
       disposed = true;
       realtimeReadyRef.current = false;
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
+      if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
       if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       supabase.removeChannel(channel);
@@ -201,16 +205,9 @@ function ChatView() {
     if (!other?.id) return;
     const profileChannel = supabase
       .channel(`conv-profile:${conversationId}:${other.id}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${other.id}` },
-        (payload) => setOther(payload.new as Profile),
-      )
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${other.id}` }, (payload) => setOther(payload.new as Profile))
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(profileChannel);
-    };
+    return () => { supabase.removeChannel(profileChannel); };
   }, [conversationId, other?.id]);
 
   useEffect(() => {
@@ -233,7 +230,6 @@ function ChatView() {
       return;
     }
     const now = Date.now();
-    // Throttle typing broadcast to at most every 1.5s
     if (now - lastTypingSentRef.current > 1500) {
       lastTypingSentRef.current = now;
       broadcastTyping("typing");
@@ -251,10 +247,12 @@ function ChatView() {
     if (!content || !user || sending) return;
     setSending(true);
     setDraft("");
+    const replySnapshot = replyTo;
+    setReplyTo(null);
     broadcastTyping("stop_typing");
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     lastTypingSentRef.current = 0;
-    // Optimistic UI
+
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const optimistic: Message = {
       id: tempId,
@@ -263,19 +261,21 @@ function ChatView() {
       content,
       status: "sent",
       created_at: new Date().toISOString(),
+      reply_to_message_id: replySnapshot?.id ?? null,
+      deleted_for_everyone: false,
     };
     setMessages((prev) => [...prev, optimistic]);
     const { data, error } = await supabase
       .from("messages")
-      .insert({ conversation_id: conversationId, sender_id: user.id, content })
+      .insert({ conversation_id: conversationId, sender_id: user.id, content, reply_to_message_id: replySnapshot?.id ?? null })
       .select()
       .single();
     if (error) {
       toast.error(error.message);
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setDraft(content);
+      setReplyTo(replySnapshot);
     } else if (data) {
-      // Replace temp with real row (in case realtime hasn't fired yet)
       setMessages((prev) => {
         if (prev.some((m) => m.id === data.id)) return prev.filter((m) => m.id !== tempId);
         return prev.map((m) => (m.id === tempId ? (data as Message) : m));
@@ -284,11 +284,74 @@ function ChatView() {
     setSending(false);
   };
 
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+    const existing = reactions.find((r) => r.message_id === messageId && r.user_id === user.id && r.emoji === emoji);
+    if (existing) {
+      setReactions((prev) => prev.filter((r) => r.id !== existing.id));
+      const { error } = await supabase.from("message_reactions").delete().eq("id", existing.id);
+      if (error) toast.error(error.message);
+    } else {
+      const { data, error } = await supabase
+        .from("message_reactions")
+        .insert({ message_id: messageId, user_id: user.id, emoji })
+        .select()
+        .single();
+      if (error) toast.error(error.message);
+      else if (data) setReactions((prev) => (prev.some((r) => r.id === data.id) ? prev : [...prev, data as Reaction]));
+    }
+    setActiveMessageId(null);
+  };
+
+  const deleteForMe = async (messageId: string) => {
+    if (!user) return;
+    setHiddenIds((prev) => new Set(prev).add(messageId));
+    const { error } = await supabase.from("message_deletions").insert({ message_id: messageId, user_id: user.id });
+    if (error && !/duplicate/i.test(error.message)) toast.error(error.message);
+    setActiveMessageId(null);
+  };
+
+  const deleteForEveryone = async (messageId: string) => {
+    const { error } = await supabase
+      .from("messages")
+      .update({ deleted_for_everyone: true, content: "" })
+      .eq("id", messageId);
+    if (error) toast.error(error.message);
+    else setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, deleted_for_everyone: true, content: "" } : m)));
+    setActiveMessageId(null);
+  };
+
+  const copyMessage = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+    setActiveMessageId(null);
+  };
+
+  const startReply = (m: Message) => {
+    setReplyTo(m);
+    setActiveMessageId(null);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const scrollToMessage = (id: string) => {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightId(id);
+    setTimeout(() => setHighlightId((cur) => (cur === id ? null : cur)), 1500);
+  };
+
   const subline = useMemo(() => {
     if (otherTyping) return "typing…";
     if (!other) return "";
     return other.status === "online" ? "Online" : `Last seen ${formatTime(other.last_seen)}`;
   }, [otherTyping, other]);
+
+  const visibleMessages = useMemo(() => messages.filter((m) => !hiddenIds.has(m.id)), [messages, hiddenIds]);
 
   return (
     <div className="flex flex-col h-full">
@@ -301,9 +364,7 @@ function ChatView() {
                 <AvatarImage src={other.avatar_url ?? undefined} />
                 <AvatarFallback>{initials(other.name)}</AvatarFallback>
               </Avatar>
-              {other.status === "online" && (
-                <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-online ring-2 ring-card" />
-              )}
+              {other.status === "online" && <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-online ring-2 ring-card" />}
             </div>
             <div className="min-w-0">
               <div className="font-semibold truncate">{other.name}</div>
@@ -317,30 +378,14 @@ function ChatView() {
                       <span className="size-1 rounded-full bg-primary animate-bounce" />
                     </span>
                   </span>
-                ) : (
-                  subline
-                )}
+                ) : subline}
               </div>
             </div>
             <div className="ml-auto flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                disabled={callPhase !== "idle"}
-                onClick={() => startCall({ id: other.id, name: other.name, avatar_url: other.avatar_url }, "audio")}
-                aria-label="Voice call"
-              >
+              <Button variant="ghost" size="icon" className="rounded-full" disabled={callPhase !== "idle"} onClick={() => startCall({ id: other.id, name: other.name, avatar_url: other.avatar_url }, "audio")} aria-label="Voice call">
                 <Phone className="size-5" />
               </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                disabled={callPhase !== "idle"}
-                onClick={() => startCall({ id: other.id, name: other.name, avatar_url: other.avatar_url }, "video")}
-                aria-label="Video call"
-              >
+              <Button variant="ghost" size="icon" className="rounded-full" disabled={callPhase !== "idle"} onClick={() => startCall({ id: other.id, name: other.name, avatar_url: other.avatar_url }, "video")} aria-label="Video call">
                 <Video className="size-5" />
               </Button>
               <DropdownMenu>
@@ -379,35 +424,139 @@ function ChatView() {
       </AlertDialog>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-2 bg-gradient-to-b from-background to-accent/20">
-        {messages.length === 0 && (
+        {visibleMessages.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-10">No messages yet — say hi!</div>
         )}
-        {messages.map((m, i) => {
+        {visibleMessages.map((m, i) => {
           const mine = m.sender_id === user?.id;
-          const prev = messages[i - 1];
+          const prev = visibleMessages[i - 1];
           const groupedWithPrev = prev && prev.sender_id === m.sender_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000;
+          const msgReactions = reactions.filter((r) => r.message_id === m.id);
+          const reactionGroups = msgReactions.reduce<Record<string, { count: number; mine: boolean }>>((acc, r) => {
+            const cur = acc[r.emoji] ?? { count: 0, mine: false };
+            cur.count++;
+            if (r.user_id === user?.id) cur.mine = true;
+            acc[r.emoji] = cur;
+            return acc;
+          }, {});
+          const replied = m.reply_to_message_id ? messages.find((x) => x.id === m.reply_to_message_id) : null;
+          const isOpen = activeMessageId === m.id;
+
           return (
-            <div key={m.id} className={cn("flex animate-fade-in", mine ? "justify-end" : "justify-start", groupedWithPrev ? "mt-0.5" : "mt-2")}>
-              <div
-                className={cn(
-                  "max-w-[78%] md:max-w-[60%] px-3.5 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm",
-                  mine ? "bg-bubble-out text-bubble-out-foreground rounded-br-md" : "bg-bubble-in text-bubble-in-foreground rounded-bl-md"
-                )}
-              >
-                <div className="whitespace-pre-wrap break-words">{m.content}</div>
-                <div className={cn("flex items-center gap-1 mt-1 text-[10px]", mine ? "text-primary-foreground/70 justify-end" : "text-muted-foreground")}>
-                  <span>{formatTime(m.created_at)}</span>
-                  {mine && (
-                    m.status === "read" ? (
-                      <CheckCheck className="size-3.5 text-read transition-colors" />
-                    ) : m.status === "delivered" ? (
-                      <CheckCheck className="size-3.5 transition-colors" />
+            <div
+              key={m.id}
+              id={`msg-${m.id}`}
+              className={cn(
+                "flex animate-fade-in transition-colors rounded-2xl",
+                mine ? "justify-end" : "justify-start",
+                groupedWithPrev ? "mt-0.5" : "mt-2",
+                highlightId === m.id && "bg-primary/10",
+              )}
+            >
+              <Popover open={isOpen} onOpenChange={(o) => setActiveMessageId(o ? m.id : null)}>
+                <PopoverTrigger asChild>
+                  <div
+                    onContextMenu={(e) => {
+                      if (m.deleted_for_everyone) return;
+                      e.preventDefault();
+                      setActiveMessageId(m.id);
+                    }}
+                    onTouchStart={() => {
+                      if (m.deleted_for_everyone) return;
+                      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                      longPressTimerRef.current = setTimeout(() => setActiveMessageId(m.id), 450);
+                    }}
+                    onTouchEnd={() => { if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current); }}
+                    onTouchMove={() => { if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current); }}
+                    className={cn(
+                      "max-w-[78%] md:max-w-[60%] px-3.5 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm cursor-pointer select-none",
+                      mine ? "bg-bubble-out text-bubble-out-foreground rounded-br-md" : "bg-bubble-in text-bubble-in-foreground rounded-bl-md",
+                      isOpen && "ring-2 ring-primary/40",
+                    )}
+                  >
+                    {replied && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); scrollToMessage(replied.id); }}
+                        className={cn(
+                          "block w-full text-left mb-1.5 px-2 py-1 rounded-lg border-l-2 text-xs",
+                          mine ? "border-primary-foreground/60 bg-primary-foreground/10" : "border-primary bg-primary/10",
+                        )}
+                      >
+                        <div className="font-semibold opacity-80 truncate">
+                          {replied.sender_id === user?.id ? "You" : other?.name ?? "Them"}
+                        </div>
+                        <div className="opacity-80 truncate">{replied.deleted_for_everyone ? "Message deleted" : replied.content}</div>
+                      </button>
+                    )}
+                    {m.deleted_for_everyone ? (
+                      <div className="italic opacity-70 inline-flex items-center gap-1">
+                        <Trash2 className="size-3.5" /> This message was deleted
+                      </div>
                     ) : (
-                      <Check className="size-3.5 transition-colors" />
-                    )
-                  )}
-                </div>
-              </div>
+                      <div className="whitespace-pre-wrap break-words">{m.content}</div>
+                    )}
+                    <div className={cn("flex items-center gap-1 mt-1 text-[10px]", mine ? "text-primary-foreground/70 justify-end" : "text-muted-foreground")}>
+                      <span>{formatTime(m.created_at)}</span>
+                      {mine && !m.deleted_for_everyone && (
+                        m.status === "read" ? <CheckCheck className="size-3.5 text-read transition-colors" />
+                        : m.status === "delivered" ? <CheckCheck className="size-3.5 transition-colors" />
+                        : <Check className="size-3.5 transition-colors" />
+                      )}
+                    </div>
+                    {Object.keys(reactionGroups).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {Object.entries(reactionGroups).map(([emoji, info]) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); toggleReaction(m.id, emoji); }}
+                            className={cn(
+                              "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] border transition",
+                              info.mine ? "bg-primary/20 border-primary/40" : "bg-background/60 border-border hover:bg-background",
+                            )}
+                          >
+                            <span>{emoji}</span>
+                            {info.count > 1 && <span className="font-medium">{info.count}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent side="top" align={mine ? "end" : "start"} className="w-auto p-2 rounded-2xl">
+                  <div className="flex items-center gap-1 mb-2">
+                    {REACTION_EMOJIS.map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => toggleReaction(m.id, emoji)}
+                        className="size-9 rounded-full hover:bg-muted text-xl transition"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="border-t pt-1 flex flex-col text-sm">
+                    <button onClick={() => startReply(m)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left">
+                      <Reply className="size-4" /> Reply
+                    </button>
+                    {!m.deleted_for_everyone && (
+                      <button onClick={() => copyMessage(m.content)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left">
+                        <Copy className="size-4" /> Copy
+                      </button>
+                    )}
+                    <button onClick={() => deleteForMe(m.id)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left text-destructive">
+                      <Trash2 className="size-4" /> Delete for me
+                    </button>
+                    {mine && !m.deleted_for_everyone && (
+                      <button onClick={() => deleteForEveryone(m.id)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left text-destructive">
+                        <Trash2 className="size-4" /> Delete for everyone
+                      </button>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           );
         })}
@@ -424,8 +573,26 @@ function ChatView() {
         )}
       </div>
 
+      {replyTo && (
+        <div className="px-3 md:px-4 pt-2">
+          <div className="flex items-start gap-2 px-3 py-2 rounded-xl border border-border bg-muted/40">
+            <CornerDownRight className="size-4 mt-0.5 text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold text-primary">
+                Replying to {replyTo.sender_id === user?.id ? "yourself" : other?.name}
+              </div>
+              <div className="text-sm truncate text-muted-foreground">{replyTo.deleted_for_everyone ? "Message deleted" : replyTo.content}</div>
+            </div>
+            <Button type="button" variant="ghost" size="icon" className="size-7 rounded-full" onClick={() => setReplyTo(null)} aria-label="Cancel reply">
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={send} className="p-3 md:p-4 border-t border-border bg-card/50 backdrop-blur flex items-center gap-2">
         <Input
+          ref={inputRef}
           value={draft}
           onChange={(e) => onDraftChange(e.target.value)}
           placeholder="Message"

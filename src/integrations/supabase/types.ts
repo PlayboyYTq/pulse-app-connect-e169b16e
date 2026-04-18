@@ -187,13 +187,76 @@ export type Database = {
         }
         Relationships: []
       }
+      message_deletions: {
+        Row: {
+          created_at: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_deletions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
           conversation_id: string | null
           created_at: string
+          deleted_for_everyone: boolean
+          edited_at: string | null
           group_id: string | null
           id: string
+          media_type: string | null
+          media_url: string | null
+          reply_to_message_id: string | null
           sender_id: string
           status: string
         }
@@ -201,8 +264,13 @@ export type Database = {
           content: string
           conversation_id?: string | null
           created_at?: string
+          deleted_for_everyone?: boolean
+          edited_at?: string | null
           group_id?: string | null
           id?: string
+          media_type?: string | null
+          media_url?: string | null
+          reply_to_message_id?: string | null
           sender_id: string
           status?: string
         }
@@ -210,8 +278,13 @@ export type Database = {
           content?: string
           conversation_id?: string | null
           created_at?: string
+          deleted_for_everyone?: boolean
+          edited_at?: string | null
           group_id?: string | null
           id?: string
+          media_type?: string | null
+          media_url?: string | null
+          reply_to_message_id?: string | null
           sender_id?: string
           status?: string
         }
@@ -228,6 +301,13 @@ export type Database = {
             columns: ["group_id"]
             isOneToOne: false
             referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
