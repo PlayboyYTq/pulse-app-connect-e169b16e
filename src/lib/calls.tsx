@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { notifyAlways } from "@/lib/notifications";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export type CallMode = "audio" | "video";
