@@ -36,8 +36,8 @@ function SettingsPage() {
 
   const onToggleNotif = async (value: boolean) => {
     if (value) {
-      const granted = await ensureNotificationPermission();
-      if (!granted) {
+      const permission = await ensureNotificationPermission();
+      if (permission !== "granted") {
         toast.error("Notification permission was denied in your browser.");
         return;
       }
