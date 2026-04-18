@@ -74,6 +74,52 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const remoteSetRef = useRef(false);
   const callIdRef = useRef<string | null>(null);
   const peerIdRef = useRef<string | null>(null);
+  const incomingNotifRef = useRef<Notification | null>(null);
+  const wasConnectedRef = useRef(false);
+  const callRoleRef = useRef<"caller" | "callee" | null>(null);
+  const callModeRef = useRef<CallMode>("audio");
+
+  const closeIncomingNotif = useCallback(() => {
+    try { incomingNotifRef.current?.close(); } catch { /* ignore */ }
+    incomingNotifRef.current = null;
+  }, []);
+
+  // Insert a system message into the 1:1 conversation marking call outcome.
+  const logCallEvent = useCallback(async (
+    outcome: "missed" | "rejected" | "ended",
+    mode: CallMode,
+    role: "caller" | "callee",
+    peerId: string | null,
+  ) => {
+    if (!user || !peerId) return;
+    try {
+      const a = user.id < peerId ? user.id : peerId;
+      const b = user.id < peerId ? peerId : user.id;
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("user_a", a)
+        .eq("user_b", b)
+        .maybeSingle();
+      if (!conv) return;
+      const icon = mode === "video" ? "📹" : "📞";
+      const verb = outcome === "missed"
+        ? (role === "callee" ? "Missed" : "No answer —")
+        : outcome === "rejected"
+          ? (role === "callee" ? "Declined" : "Call declined —")
+          : "Call ended —";
+      const label = mode === "video" ? "video call" : "voice call";
+      const content = `${icon} ${verb} ${label}`;
+      await supabase.from("messages").insert({
+        conversation_id: conv.id,
+        sender_id: user.id,
+        content,
+        status: "sent",
+      });
+    } catch {
+      // best-effort
+    }
+  }, [user]);
 
   const cleanup = useCallback(() => {
     try {
