@@ -9,11 +9,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, FileText } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, FileText, Forward } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
 import { useCall } from "@/lib/calls";
+import { ForwardDialog, type ForwardPayload } from "@/components/ForwardDialog";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/chats/$conversationId")({
@@ -71,6 +72,7 @@ function ChatView() {
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
+  const [forwardPayload, setForwardPayload] = useState<ForwardPayload | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const realtimeReadyRef = useRef(false);
@@ -601,6 +603,17 @@ function ChatView() {
                       <Reply className="size-4" /> Reply
                     </button>
                     {!m.deleted_for_everyone && (
+                      <button
+                        onClick={() => {
+                          setForwardPayload({ content: m.content, media_url: m.media_url, media_type: m.media_type });
+                          setActiveMessageId(null);
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left"
+                      >
+                        <Forward className="size-4" /> Forward
+                      </button>
+                    )}
+                    {!m.deleted_for_everyone && m.content && (
                       <button onClick={() => copyMessage(m.content)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left">
                         <Copy className="size-4" /> Copy
                       </button>
@@ -691,6 +704,12 @@ function ChatView() {
           <Send className="size-4" />
         </Button>
       </form>
+
+      <ForwardDialog
+        open={!!forwardPayload}
+        onOpenChange={(o) => { if (!o) setForwardPayload(null); }}
+        payload={forwardPayload}
+      />
     </div>
   );
 }
