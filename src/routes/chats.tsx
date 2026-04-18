@@ -12,6 +12,7 @@ import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
+import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { playMessageSound } from "@/lib/sound";
 
 export const Route = createFileRoute("/chats")({
