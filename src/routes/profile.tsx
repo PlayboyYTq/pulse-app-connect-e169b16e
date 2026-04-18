@@ -292,6 +292,43 @@ function ProfilePage() {
             ))}
           </div>
         </Card>
+
+        <Card className="p-6 md:p-8">
+          <h2 className="text-lg font-semibold tracking-tight">Account</h2>
+          <p className="text-sm text-muted-foreground mt-1">Sign out of this device or permanently delete your account.</p>
+          <div className="mt-5 flex flex-col sm:flex-row gap-3">
+            <Button variant="outline" className="rounded-xl" onClick={handleSignOut}>
+              <LogOut className="size-4 mr-2" /> Sign out
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="rounded-xl" disabled={deleting}>
+                  {deleting ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Trash2 className="size-4 mr-2" />}
+                  Delete account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes your account, profile, messages, and friendships. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={(e) => { e.preventDefault(); void handleDeleteAccount(); }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={deleting}
+                  >
+                    {deleting && <Loader2 className="size-4 mr-2 animate-spin" />}
+                    Yes, delete forever
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </Card>
       </div>
 
       <Dialog open={otpOpen} onOpenChange={(v) => { if (!otpVerifying) setOtpOpen(v); }}>
