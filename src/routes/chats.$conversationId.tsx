@@ -192,14 +192,32 @@ function ChatView() {
     broadcastTyping("stop_typing");
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     lastTypingSentRef.current = 0;
-    const { error } = await supabase.from("messages").insert({
+    // Optimistic UI
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimistic: Message = {
+      id: tempId,
       conversation_id: conversationId,
       sender_id: user.id,
       content,
-    });
+      status: "sent",
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({ conversation_id: conversationId, sender_id: user.id, content })
+      .select()
+      .single();
     if (error) {
       toast.error(error.message);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setDraft(content);
+    } else if (data) {
+      // Replace temp with real row (in case realtime hasn't fired yet)
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === data.id)) return prev.filter((m) => m.id !== tempId);
+        return prev.map((m) => (m.id === tempId ? (data as Message) : m));
+      });
     }
     setSending(false);
   };
