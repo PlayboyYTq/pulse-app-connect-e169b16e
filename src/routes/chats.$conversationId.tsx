@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, Image as ImageIcon, FileText, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
@@ -29,6 +29,8 @@ type Message = {
   created_at: string;
   reply_to_message_id: string | null;
   deleted_for_everyone: boolean;
+  media_url: string | null;
+  media_type: string | null;
 };
 
 type Reaction = { id: string; message_id: string; user_id: string; emoji: string };
