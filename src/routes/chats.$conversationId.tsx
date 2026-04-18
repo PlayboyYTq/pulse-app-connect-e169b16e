@@ -31,17 +31,33 @@ type Profile = { id: string; name: string; avatar_url: string | null; status: st
 
 function ChatView() {
   const { conversationId } = useParams({ from: "/chats/$conversationId" });
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [other, setOther] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
   const otherTypingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const blockUser = async () => {
+    if (!user || !other) return;
+    setBlocking(true);
+    const { error } = await supabase
+      .from("user_blocks")
+      .insert({ blocker_id: user.id, blocked_id: other.id });
+    setBlocking(false);
+    if (error) return toast.error(error.message);
+    toast.success(`${other.name} has been blocked`);
+    setBlockOpen(false);
+    navigate({ to: "/chats" });
+  };
 
   // Load conversation + other user + messages
   useEffect(() => {
