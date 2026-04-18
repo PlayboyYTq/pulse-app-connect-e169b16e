@@ -9,8 +9,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, FileText, Forward } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video, Reply, Copy, Trash2, X, CornerDownRight, Paperclip, FileText, Forward, Search as SearchIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { dateSeparatorLabel, isSameDay } from "@/lib/dateLabel";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
 import { useCall } from "@/lib/calls";
@@ -73,6 +74,8 @@ function ChatView() {
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const [forwardPayload, setForwardPayload] = useState<ForwardPayload | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const realtimeReadyRef = useRef(false);
