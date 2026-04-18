@@ -603,6 +603,17 @@ function ChatView() {
                       <Reply className="size-4" /> Reply
                     </button>
                     {!m.deleted_for_everyone && (
+                      <button
+                        onClick={() => {
+                          setForwardPayload({ content: m.content, media_url: m.media_url, media_type: m.media_type });
+                          setActiveMessageId(null);
+                        }}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left"
+                      >
+                        <Forward className="size-4" /> Forward
+                      </button>
+                    )}
+                    {!m.deleted_for_everyone && m.content && (
                       <button onClick={() => copyMessage(m.content)} className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted text-left">
                         <Copy className="size-4" /> Copy
                       </button>
