@@ -202,6 +202,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pc.onconnectionstatechange = () => {
       const st = pc.connectionState;
       if (st === "connected") {
+        wasConnectedRef.current = true;
         setState((s) => ({ ...s, phase: "connected" }));
       } else if (st === "failed" || st === "disconnected") {
         // Try ICE restart once; if it doesn't recover, end.
