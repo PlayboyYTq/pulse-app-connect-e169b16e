@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
+import { AskifyFab } from "@/components/AskifyFab";
 import { playMessageSound } from "@/lib/sound";
 import { AppLoader } from "@/components/AppLoader";
 import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
@@ -441,6 +442,7 @@ function ChatsLayout() {
           </div>
         )}
       </main>
+      {!params.conversationId && <AskifyFab />}
     </div>
   );
 }
