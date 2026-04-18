@@ -22,7 +22,38 @@ type BlockedUser = { id: string; name: string; avatar_url: string | null };
 
 function ProfilePage() {
   const navigate = useNavigate();
-  const { user, profile, refreshProfile, loading } = useAuth();
+  const { user, profile, refreshProfile, loading, signOut } = useAuth();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate({ to: "/auth" });
+    toast.success("Signed out");
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setDeleting(true);
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("No active session");
+      const res = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Failed to delete account");
+      await supabase.auth.signOut();
+      toast.success("Your account has been deleted");
+      navigate({ to: "/auth" });
+    } catch (err) {
+      const e = err as { message?: string };
+      toast.error(e.message ?? "Failed to delete account");
+    } finally {
+      setDeleting(false);
+    }
+  };
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [phone, setPhone] = useState("");
