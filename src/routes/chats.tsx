@@ -268,6 +268,19 @@ function ChatsLayout() {
   const showSidebarOnMobile = !params.conversationId;
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
 
+  // Title badge with unread count
+  useEffect(() => {
+    setTitleBadge(totalUnread);
+    return () => setTitleBadge(0);
+  }, [totalUnread]);
+
+  // Ask for notification permission once after sign-in (best-effort)
+  useEffect(() => {
+    if (!user) return;
+    const t = setTimeout(() => { void ensureNotificationPermission(); }, 1500);
+    return () => clearTimeout(t);
+  }, [user?.id]);
+
   if (loading) {
     return <AppLoader title="Opening Pulse" detail="Restoring your session and loading chats…" />;
   }
