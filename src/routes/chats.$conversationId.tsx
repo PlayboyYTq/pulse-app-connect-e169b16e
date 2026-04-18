@@ -704,6 +704,12 @@ function ChatView() {
           <Send className="size-4" />
         </Button>
       </form>
+
+      <ForwardDialog
+        open={!!forwardPayload}
+        onOpenChange={(o) => { if (!o) setForwardPayload(null); }}
+        payload={forwardPayload}
+      />
     </div>
   );
 }
