@@ -164,14 +164,35 @@ export function FriendsPanel() {
       </div>
 
       {section === "discover" && (
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-2 space-y-2">
+          <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted/60">
+            <button
+              onClick={() => { setSearchMode("name"); setSearch(""); setDiscover([]); }}
+              className={cn(
+                "h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                searchMode === "name" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Search className="size-3.5" /> By name
+            </button>
+            <button
+              onClick={() => { setSearchMode("phone"); setSearch(""); setDiscover([]); }}
+              className={cn(
+                "h-8 rounded-lg text-xs font-medium transition-colors flex items-center justify-center gap-1.5",
+                searchMode === "phone" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Phone className="size-3.5" /> By phone
+            </button>
+          </div>
           <div className="relative">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search people by name"
+              placeholder={searchMode === "phone" ? "Exact phone, e.g. +919876543210" : "Search people by name"}
+              inputMode={searchMode === "phone" ? "tel" : "text"}
               className="pl-9 h-10 rounded-xl bg-muted/60 border-transparent focus-visible:bg-background"
             />
           </div>
