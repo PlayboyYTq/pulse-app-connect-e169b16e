@@ -50,10 +50,12 @@ function ChatsLayout() {
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [listChannelVersion, setListChannelVersion] = useState(0);
   const activeConvRef = useRef<string | undefined>(undefined);
   activeConvRef.current = params.conversationId;
   const userIdRef = useRef<string | undefined>(undefined);
   userIdRef.current = user?.id;
+  const listReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -163,8 +165,17 @@ function ChatsLayout() {
     loadUnread();
     loadPendingCount();
     if (!user) return;
+    let disposed = false;
+    const scheduleReconnect = () => {
+      if (disposed || listReconnectTimerRef.current) return;
+      listReconnectTimerRef.current = setTimeout(() => {
+        listReconnectTimerRef.current = null;
+        setListChannelVersion((value) => value + 1);
+      }, 1000);
+    };
+
     const channel = supabase
-      .channel("chats-list")
+      .channel(`chats-list:${user.id}:${listChannelVersion}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => loadChats())
       .on(
         "postgres_changes",
@@ -208,12 +219,29 @@ function ChatsLayout() {
       .on("postgres_changes", { event: "*", schema: "public", table: "user_blocks" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "groups" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "group_members" }, () => loadChats())
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          if (listReconnectTimerRef.current) {
+            clearTimeout(listReconnectTimerRef.current);
+            listReconnectTimerRef.current = null;
+          }
+          return;
+        }
+
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          scheduleReconnect();
+        }
+      });
     return () => {
+      disposed = true;
+      if (listReconnectTimerRef.current) {
+        clearTimeout(listReconnectTimerRef.current);
+        listReconnectTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [user?.id, listChannelVersion]);
 
   // Clear unread for the currently open conversation
   useEffect(() => {
