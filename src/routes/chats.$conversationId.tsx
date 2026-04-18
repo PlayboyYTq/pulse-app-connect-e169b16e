@@ -94,13 +94,23 @@ function ChatView() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`conv:${conversationId}`, { config: { broadcast: { self: false } } })
+      .channel(`conv:${conversationId}:${user.id}:${Math.random().toString(36).slice(2, 8)}`, { config: { broadcast: { self: false } } })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           const m = payload.new as Message;
-          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          setMessages((prev) => {
+            if (prev.some((x) => x.id === m.id)) return prev;
+            // Replace optimistic temp message from same sender with same content
+            const tempIdx = prev.findIndex((x) => x.id.startsWith("temp-") && x.sender_id === m.sender_id && x.content === m.content);
+            if (tempIdx !== -1) {
+              const next = prev.slice();
+              next[tempIdx] = m;
+              return next;
+            }
+            return [...prev, m];
+          });
           if (m.sender_id !== user.id) {
             // Chat is open → mark as read immediately
             await supabase.from("messages").update({ status: "read" }).eq("id", m.id);
@@ -182,14 +192,32 @@ function ChatView() {
     broadcastTyping("stop_typing");
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     lastTypingSentRef.current = 0;
-    const { error } = await supabase.from("messages").insert({
+    // Optimistic UI
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimistic: Message = {
+      id: tempId,
       conversation_id: conversationId,
       sender_id: user.id,
       content,
-    });
+      status: "sent",
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({ conversation_id: conversationId, sender_id: user.id, content })
+      .select()
+      .single();
     if (error) {
       toast.error(error.message);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
       setDraft(content);
+    } else if (data) {
+      // Replace temp with real row (in case realtime hasn't fired yet)
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === data.id)) return prev.filter((m) => m.id !== tempId);
+        return prev.map((m) => (m.id === tempId ? (data as Message) : m));
+      });
     }
     setSending(false);
   };
