@@ -163,6 +163,8 @@ function ChatsLayout() {
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => {
         loadPendingCount();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => loadChats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_blocks" }, () => loadChats())
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
