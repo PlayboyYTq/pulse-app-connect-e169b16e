@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { notifyAlways } from "@/lib/notifications";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export type CallMode = "audio" | "video";
@@ -73,6 +74,52 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const remoteSetRef = useRef(false);
   const callIdRef = useRef<string | null>(null);
   const peerIdRef = useRef<string | null>(null);
+  const incomingNotifRef = useRef<Notification | null>(null);
+  const wasConnectedRef = useRef(false);
+  const callRoleRef = useRef<"caller" | "callee" | null>(null);
+  const callModeRef = useRef<CallMode>("audio");
+
+  const closeIncomingNotif = useCallback(() => {
+    try { incomingNotifRef.current?.close(); } catch { /* ignore */ }
+    incomingNotifRef.current = null;
+  }, []);
+
+  // Insert a system message into the 1:1 conversation marking call outcome.
+  const logCallEvent = useCallback(async (
+    outcome: "missed" | "rejected" | "ended",
+    mode: CallMode,
+    role: "caller" | "callee",
+    peerId: string | null,
+  ) => {
+    if (!user || !peerId) return;
+    try {
+      const a = user.id < peerId ? user.id : peerId;
+      const b = user.id < peerId ? peerId : user.id;
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("user_a", a)
+        .eq("user_b", b)
+        .maybeSingle();
+      if (!conv) return;
+      const icon = mode === "video" ? "📹" : "📞";
+      const verb = outcome === "missed"
+        ? (role === "callee" ? "Missed" : "No answer —")
+        : outcome === "rejected"
+          ? (role === "callee" ? "Declined" : "Call declined —")
+          : "Call ended —";
+      const label = mode === "video" ? "video call" : "voice call";
+      const content = `${icon} ${verb} ${label}`;
+      await supabase.from("messages").insert({
+        conversation_id: conv.id,
+        sender_id: user.id,
+        content,
+        status: "sent",
+      });
+    } catch {
+      // best-effort
+    }
+  }, [user]);
 
   const cleanup = useCallback(() => {
     try {
@@ -155,6 +202,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     pc.onconnectionstatechange = () => {
       const st = pc.connectionState;
       if (st === "connected") {
+        wasConnectedRef.current = true;
         setState((s) => ({ ...s, phase: "connected" }));
       } else if (st === "failed" || st === "disconnected") {
         // Try ICE restart once; if it doesn't recover, end.
@@ -187,6 +235,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
     const callId = `${user.id}:${peer.id}:${Date.now()}`;
     callIdRef.current = callId;
     peerIdRef.current = peer.id;
+    callRoleRef.current = "caller";
+    callModeRef.current = mode;
+    wasConnectedRef.current = false;
     setState({
       phase: "outgoing",
       mode,
@@ -230,6 +281,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   // --- Incoming ---
   const acceptCall = useCallback(async () => {
     if (!user || !state.peer || !state.callId || !incomingOfferRef.current) return;
+    closeIncomingNotif();
     const { sdp, mode } = incomingOfferRef.current;
     setState((s) => ({ ...s, phase: "connecting" }));
     try {
@@ -257,22 +309,31 @@ export function CallProvider({ children }: { children: ReactNode }) {
       setState((s) => ({ ...s, phase: "ended", errorMessage: msg }));
       cleanup();
     }
-  }, [user, state.peer, state.callId, ensurePeerChannel, acquireLocalMedia, setupPeerConnection, flushIce, sendToPeer, cleanup]);
+  }, [user, state.peer, state.callId, ensurePeerChannel, acquireLocalMedia, setupPeerConnection, flushIce, sendToPeer, cleanup, closeIncomingNotif]);
 
   const rejectCall = useCallback(() => {
     if (!user || !state.callId) return;
     void sendToPeer({ type: "reject", callId: state.callId, from: user.id });
+    closeIncomingNotif();
+    void logCallEvent("rejected", callModeRef.current, "callee", peerIdRef.current);
     setState((s) => ({ ...s, phase: "ended" }));
     cleanup();
-  }, [user, state.callId, sendToPeer, cleanup]);
+  }, [user, state.callId, sendToPeer, cleanup, closeIncomingNotif, logCallEvent]);
 
   const endCall = useCallback(() => {
     if (user && state.callId) {
       void sendToPeer({ type: "end", callId: state.callId, from: user.id });
     }
+    closeIncomingNotif();
+    if (wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+      void logCallEvent("ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+    } else if (callRoleRef.current === "caller" && peerIdRef.current) {
+      // Caller hung up before connect = no answer / missed for callee
+      void logCallEvent("missed", callModeRef.current, "caller", peerIdRef.current);
+    }
     setState((s) => ({ ...s, phase: "ended" }));
     cleanup();
-  }, [user, state.callId, sendToPeer, cleanup]);
+  }, [user, state.callId, sendToPeer, cleanup, closeIncomingNotif, logCallEvent]);
 
   const toggleMic = useCallback(() => {
     const s = localStreamRef.current;
@@ -315,6 +376,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
           incomingOfferRef.current = { sdp: sig.sdp, mode: sig.mode };
           callIdRef.current = sig.callId;
           peerIdRef.current = sig.from.id;
+          callRoleRef.current = "callee";
+          callModeRef.current = sig.mode;
+          wasConnectedRef.current = false;
           ensurePeerChannel(sig.from.id);
           setState({
             phase: "incoming",
@@ -326,6 +390,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
             micMuted: false,
             cameraOff: false,
             errorMessage: null,
+          });
+          // OS-level notification when app is backgrounded
+          incomingNotifRef.current = notifyAlways({
+            title: `Incoming ${sig.mode === "video" ? "video" : "voice"} call`,
+            body: `${sig.from.name} is calling…`,
+            icon: sig.from.avatar_url ?? "/icon-192.png",
+            tag: `call:${sig.callId}`,
+            requireInteraction: true,
           });
           return;
         }
@@ -352,6 +424,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
             try { await pc.addIceCandidate(sig.candidate); } catch { /* ignore */ }
           }
         } else if (sig.type === "reject" || sig.type === "end") {
+          closeIncomingNotif();
+          // If the remote rejected/ended before we ever connected, log as missed for callee / no-answer
+          if (!wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+            const outcome = sig.type === "reject" ? "rejected" : (callRoleRef.current === "caller" ? "missed" : "ended");
+            void logCallEvent(outcome as "missed" | "rejected" | "ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+          } else if (wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+            void logCallEvent("ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+          }
           setState((s) => ({ ...s, phase: "ended" }));
           cleanup();
         }
@@ -365,7 +445,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       try { supabase.removeChannel(ch); } catch { /* ignore */ }
       myChannelRef.current = null;
     };
-  }, [user, ensurePeerChannel, flushIce, cleanup, state.phase]);
+  }, [user, ensurePeerChannel, flushIce, cleanup, state.phase, closeIncomingNotif, logCallEvent]);
 
   // Auto-clear "ended" after a beat so UI dismisses
   useEffect(() => {

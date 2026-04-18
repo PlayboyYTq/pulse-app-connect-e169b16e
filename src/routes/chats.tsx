@@ -15,6 +15,7 @@ import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { playMessageSound } from "@/lib/sound";
 import { AppLoader } from "@/components/AppLoader";
+import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
 
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
@@ -196,15 +197,24 @@ function ChatsLayout() {
           playMessageSound();
           const { data: sender } = await supabase
             .from("profiles")
-            .select("name")
+            .select("name,avatar_url")
             .eq("id", m.sender_id)
             .maybeSingle();
-          toast(sender?.name ?? "New message", {
-            description: m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content,
+          const senderName = sender?.name ?? "New message";
+          const preview = m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content;
+          toast(senderName, {
+            description: preview,
             action: {
               label: "Open",
               onClick: () => navigate({ to: "/chats/$conversationId", params: { conversationId: m.conversation_id } }),
             },
+          });
+          notifyIfHidden({
+            title: senderName,
+            body: preview,
+            icon: sender?.avatar_url ?? "/icon-192.png",
+            tag: `msg:${m.conversation_id}`,
+            onClick: () => navigate({ to: "/chats/$conversationId", params: { conversationId: m.conversation_id } }),
           });
         }
       )
@@ -257,6 +267,19 @@ function ChatsLayout() {
   const filtered = chats.filter((c) => c.title.toLowerCase().includes(search.toLowerCase()));
   const showSidebarOnMobile = !params.conversationId;
   const totalUnread = Object.values(unread).reduce((a, b) => a + b, 0);
+
+  // Title badge with unread count
+  useEffect(() => {
+    setTitleBadge(totalUnread);
+    return () => setTitleBadge(0);
+  }, [totalUnread]);
+
+  // Ask for notification permission once after sign-in (best-effort)
+  useEffect(() => {
+    if (!user) return;
+    const t = setTimeout(() => { void ensureNotificationPermission(); }, 1500);
+    return () => clearTimeout(t);
+  }, [user?.id]);
 
   if (loading) {
     return <AppLoader title="Opening Pulse" detail="Restoring your session and loading chats…" />;
