@@ -1,6 +1,8 @@
 import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
+import { CallProvider } from "@/lib/calls";
+import { CallScreen } from "@/components/CallScreen";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createRootRoute({
@@ -37,8 +39,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
 function RootComponent() {
   return (
     <AuthProvider>
-      <Outlet />
-      <Toaster richColors position="top-center" />
+      <CallProvider>
+        <Outlet />
+        <CallScreen />
+        <Toaster richColors position="top-center" />
+      </CallProvider>
     </AuthProvider>
   );
 }

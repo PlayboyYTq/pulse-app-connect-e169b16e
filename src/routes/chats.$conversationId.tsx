@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { formatTime, initials } from "@/lib/format";
-import { Send, Check, CheckCheck, MoreVertical, ShieldOff } from "lucide-react";
+import { Send, Check, CheckCheck, MoreVertical, ShieldOff, Phone, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MobileBack } from "./chats";
 import { toast } from "sonner";
+import { useCall } from "@/lib/calls";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 export const Route = createFileRoute("/chats/$conversationId")({
@@ -58,6 +59,7 @@ function ChatView() {
   const { conversationId } = useParams({ from: "/chats/$conversationId" });
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { startCall, phase: callPhase } = useCall();
   const [other, setOther] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -320,18 +322,40 @@ function ChatView() {
                 )}
               </div>
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="ml-auto rounded-full">
-                  <MoreVertical className="size-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => setBlockOpen(true)} className="text-destructive focus:text-destructive">
-                  <ShieldOff className="size-4 mr-2" /> Block {other.name.split(" ")[0]}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="ml-auto flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                disabled={callPhase !== "idle"}
+                onClick={() => startCall({ id: other.id, name: other.name, avatar_url: other.avatar_url }, "audio")}
+                aria-label="Voice call"
+              >
+                <Phone className="size-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="rounded-full"
+                disabled={callPhase !== "idle"}
+                onClick={() => startCall({ id: other.id, name: other.name, avatar_url: other.avatar_url }, "video")}
+                aria-label="Video call"
+              >
+                <Video className="size-5" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <MoreVertical className="size-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => setBlockOpen(true)} className="text-destructive focus:text-destructive">
+                    <ShieldOff className="size-4 mr-2" /> Block {other.name.split(" ")[0]}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </>
         )}
       </header>
