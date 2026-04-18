@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as InstallRouteImport } from './routes/install'
+import { Route as DownloadRouteImport } from './routes/download'
 import { Route as ChatsRouteImport } from './routes/chats'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -19,6 +21,16 @@ import { Route as ChatsConversationIdRouteImport } from './routes/chats.$convers
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InstallRoute = InstallRouteImport.update({
+  id: '/install',
+  path: '/install',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadRoute = DownloadRouteImport.update({
+  id: '/download',
+  path: '/download',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatsRoute = ChatsRouteImport.update({
@@ -51,6 +63,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chats': typeof ChatsRouteWithChildren
+  '/download': typeof DownloadRoute
+  '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
@@ -59,6 +73,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chats': typeof ChatsRouteWithChildren
+  '/download': typeof DownloadRoute
+  '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
@@ -68,6 +84,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/chats': typeof ChatsRouteWithChildren
+  '/download': typeof DownloadRoute
+  '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
@@ -78,6 +96,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/chats'
+    | '/download'
+    | '/install'
     | '/profile'
     | '/chats/$conversationId'
     | '/groups/$groupId'
@@ -86,6 +106,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/chats'
+    | '/download'
+    | '/install'
     | '/profile'
     | '/chats/$conversationId'
     | '/groups/$groupId'
@@ -94,6 +116,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/chats'
+    | '/download'
+    | '/install'
     | '/profile'
     | '/chats/$conversationId'
     | '/groups/$groupId'
@@ -103,6 +127,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   ChatsRoute: typeof ChatsRouteWithChildren
+  DownloadRoute: typeof DownloadRoute
+  InstallRoute: typeof InstallRoute
   ProfileRoute: typeof ProfileRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
 }
@@ -114,6 +140,20 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/install': {
+      id: '/install'
+      path: '/install'
+      fullPath: '/install'
+      preLoaderRoute: typeof InstallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download': {
+      id: '/download'
+      path: '/download'
+      fullPath: '/download'
+      preLoaderRoute: typeof DownloadRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chats': {
@@ -168,6 +208,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   ChatsRoute: ChatsRouteWithChildren,
+  DownloadRoute: DownloadRoute,
+  InstallRoute: InstallRoute,
   ProfileRoute: ProfileRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,
 }
