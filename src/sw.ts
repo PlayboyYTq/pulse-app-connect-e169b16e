@@ -122,7 +122,7 @@ self.addEventListener("push", (event: PushEvent) => {
   }
 
   const title = payload.title || "Pulse";
-  const options: NotificationOptions = {
+  const options: NotificationOptions & { actions?: Array<{ action: string; title: string; icon?: string }> } = {
     body: payload.body || "",
     icon: payload.icon || "/icon-192.png",
     badge: payload.badge || "/icon-192.png",
@@ -130,8 +130,7 @@ self.addEventListener("push", (event: PushEvent) => {
     requireInteraction: payload.requireInteraction,
     silent: payload.silent,
     data: { url: payload.url || "/chats", ...(payload.data || {}) },
-    // @ts-expect-error - actions is supported but typed inconsistently
-    actions: payload.actions,
+    actions: payload.actions as Array<{ action: string; title: string; icon?: string }> | undefined,
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
