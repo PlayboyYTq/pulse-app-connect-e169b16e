@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -263,7 +263,7 @@ function AuthPage() {
   );
 }
 
-function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string; children: React.ReactNode }) {
+function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label htmlFor={htmlFor}>{label}</Label>
@@ -273,7 +273,7 @@ function Field({ label, htmlFor, error, children }: { label: string; htmlFor: st
   );
 }
 
-function FeaturePill({ icon, label }: { icon: React.ReactNode; label: string }) {
+function FeaturePill({ icon, label }: { icon: ReactNode; label: string }) {
   return <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-card/80 px-4 py-2 text-sm font-medium text-primary shadow-sm backdrop-blur">{icon}{label}</div>;
 }
 
