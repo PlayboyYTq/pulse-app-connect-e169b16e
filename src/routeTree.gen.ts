@@ -18,6 +18,7 @@ import { Route as AskifyRouteImport } from './routes/askify'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as ChatsConversationIdRouteImport } from './routes/chats.$conversationId'
+import { Route as ApiDeleteAccountRouteImport } from './routes/api/delete-account'
 import { Route as ApiAskifyRouteImport } from './routes/api/askify'
 import { Route as ApiPushSendRouteImport } from './routes/api/push.send'
 
@@ -66,6 +67,11 @@ const ChatsConversationIdRoute = ChatsConversationIdRouteImport.update({
   path: '/$conversationId',
   getParentRoute: () => ChatsRoute,
 } as any)
+const ApiDeleteAccountRoute = ApiDeleteAccountRouteImport.update({
+  id: '/api/delete-account',
+  path: '/api/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAskifyRoute = ApiAskifyRouteImport.update({
   id: '/api/askify',
   path: '/api/askify',
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
   '/api/askify': typeof ApiAskifyRoute
+  '/api/delete-account': typeof ApiDeleteAccountRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -99,6 +106,7 @@ export interface FileRoutesByTo {
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
   '/api/askify': typeof ApiAskifyRoute
+  '/api/delete-account': typeof ApiDeleteAccountRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -113,6 +121,7 @@ export interface FileRoutesById {
   '/install': typeof InstallRoute
   '/profile': typeof ProfileRoute
   '/api/askify': typeof ApiAskifyRoute
+  '/api/delete-account': typeof ApiDeleteAccountRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/profile'
     | '/api/askify'
+    | '/api/delete-account'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/profile'
     | '/api/askify'
+    | '/api/delete-account'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/profile'
     | '/api/askify'
+    | '/api/delete-account'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -168,6 +180,7 @@ export interface RootRouteChildren {
   InstallRoute: typeof InstallRoute
   ProfileRoute: typeof ProfileRoute
   ApiAskifyRoute: typeof ApiAskifyRoute
+  ApiDeleteAccountRoute: typeof ApiDeleteAccountRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
   ApiPushSendRoute: typeof ApiPushSendRoute
 }
@@ -237,6 +250,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatsConversationIdRouteImport
       parentRoute: typeof ChatsRoute
     }
+    '/api/delete-account': {
+      id: '/api/delete-account'
+      path: '/api/delete-account'
+      fullPath: '/api/delete-account'
+      preLoaderRoute: typeof ApiDeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/askify': {
       id: '/api/askify'
       path: '/api/askify'
@@ -273,6 +293,7 @@ const rootRouteChildren: RootRouteChildren = {
   InstallRoute: InstallRoute,
   ProfileRoute: ProfileRoute,
   ApiAskifyRoute: ApiAskifyRoute,
+  ApiDeleteAccountRoute: ApiDeleteAccountRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,
   ApiPushSendRoute: ApiPushSendRoute,
 }
