@@ -15,6 +15,7 @@ import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { playMessageSound } from "@/lib/sound";
 import { AppLoader } from "@/components/AppLoader";
+import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
 
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
@@ -196,15 +197,24 @@ function ChatsLayout() {
           playMessageSound();
           const { data: sender } = await supabase
             .from("profiles")
-            .select("name")
+            .select("name,avatar_url")
             .eq("id", m.sender_id)
             .maybeSingle();
-          toast(sender?.name ?? "New message", {
-            description: m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content,
+          const senderName = sender?.name ?? "New message";
+          const preview = m.content.length > 80 ? m.content.slice(0, 80) + "…" : m.content;
+          toast(senderName, {
+            description: preview,
             action: {
               label: "Open",
               onClick: () => navigate({ to: "/chats/$conversationId", params: { conversationId: m.conversation_id } }),
             },
+          });
+          notifyIfHidden({
+            title: senderName,
+            body: preview,
+            icon: sender?.avatar_url ?? "/icon-192.png",
+            tag: `msg:${m.conversation_id}`,
+            onClick: () => navigate({ to: "/chats/$conversationId", params: { conversationId: m.conversation_id } }),
           });
         }
       )
