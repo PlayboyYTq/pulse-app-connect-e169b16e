@@ -100,7 +100,17 @@ function ChatView() {
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
         async (payload) => {
           const m = payload.new as Message;
-          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          setMessages((prev) => {
+            if (prev.some((x) => x.id === m.id)) return prev;
+            // Replace optimistic temp message from same sender with same content
+            const tempIdx = prev.findIndex((x) => x.id.startsWith("temp-") && x.sender_id === m.sender_id && x.content === m.content);
+            if (tempIdx !== -1) {
+              const next = prev.slice();
+              next[tempIdx] = m;
+              return next;
+            }
+            return [...prev, m];
+          });
           if (m.sender_id !== user.id) {
             // Chat is open → mark as read immediately
             await supabase.from("messages").update({ status: "read" }).eq("id", m.id);
