@@ -94,7 +94,7 @@ function ChatView() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`conv:${conversationId}`, { config: { broadcast: { self: false } } })
+      .channel(`conv:${conversationId}:${user.id}:${Math.random().toString(36).slice(2, 8)}`, { config: { broadcast: { self: false } } })
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
