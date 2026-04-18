@@ -24,9 +24,6 @@ type AuthCtx = {
 
 const Ctx = createContext<AuthCtx | undefined>(undefined);
 
-function isVerifiedEmailUser(session: Session | null) {
-  return Boolean(session?.user?.email_confirmed_at);
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
