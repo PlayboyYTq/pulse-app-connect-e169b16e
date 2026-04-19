@@ -6,10 +6,11 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Bell, Moon, UserCog, ShieldOff } from "lucide-react";
+import { ArrowLeft, Bell, Moon, UserCog, ShieldOff, RefreshCw } from "lucide-react";
 import { ensureNotificationPermission } from "@/lib/notifications";
 import { toast } from "sonner";
 import { AppLoader } from "@/components/AppLoader";
+import { forceUpdateApp } from "@/lib/updateApp";
 
 export const Route = createFileRoute("/settings")({
   component: SettingsPage,
@@ -22,6 +23,14 @@ function SettingsPage() {
   const { user, loading } = useAuth();
   const { theme, setTheme } = useTheme();
   const [notifEnabled, setNotifEnabled] = useState(false);
+  const [updating, setUpdating] = useState(false);
+
+  const onUpdateApp = async () => {
+    if (updating) return;
+    setUpdating(true);
+    toast.success("Updating Pulse to the latest version…");
+    await forceUpdateApp();
+  };
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
