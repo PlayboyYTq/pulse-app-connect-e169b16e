@@ -166,6 +166,9 @@ export type Database = {
           id: string
           last_message_at: string
           name: string
+          who_can_add_members: string
+          who_can_edit_info: string
+          who_can_send: string
         }
         Insert: {
           avatar_url?: string | null
@@ -175,6 +178,9 @@ export type Database = {
           id?: string
           last_message_at?: string
           name: string
+          who_can_add_members?: string
+          who_can_edit_info?: string
+          who_can_send?: string
         }
         Update: {
           avatar_url?: string | null
@@ -184,6 +190,9 @@ export type Database = {
           id?: string
           last_message_at?: string
           name?: string
+          who_can_add_members?: string
+          who_can_edit_info?: string
+          who_can_send?: string
         }
         Relationships: []
       }
@@ -412,7 +421,12 @@ export type Database = {
     }
     Functions: {
       are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
+      group_role: { Args: { _group: string; _user: string }; Returns: string }
       is_blocked: { Args: { _a: string; _b: string }; Returns: boolean }
+      is_group_admin_or_owner: {
+        Args: { _group: string; _user: string }
+        Returns: boolean
+      }
       is_group_member: {
         Args: { _group: string; _user: string }
         Returns: boolean
