@@ -75,11 +75,6 @@ function SettingsPage() {
           <p className="text-sm text-muted-foreground mt-1">Customize Pulse to your preference.</p>
         </Card>
 
-        <Card className="p-6 md:p-8">
-          <h2 className="text-lg font-semibold tracking-tight inline-flex items-center gap-2">
-            <Bell className="size-5 text-primary" /> Notifications
-          </h2>
-          <p className="text-sm text-muted-foreground mt-1">Get a system notification when a new message arrives while Pulse is in the background.</p>
         <Card className="p-6 md:p-8 border-primary/30 bg-primary/5">
           <h2 className="text-lg font-semibold tracking-tight inline-flex items-center gap-2">
             <RefreshCw className={`size-5 text-primary ${updating ? "animate-spin" : ""}`} /> App version
