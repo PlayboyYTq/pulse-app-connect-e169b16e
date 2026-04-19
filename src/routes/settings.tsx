@@ -80,6 +80,26 @@ function SettingsPage() {
             <Bell className="size-5 text-primary" /> Notifications
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Get a system notification when a new message arrives while Pulse is in the background.</p>
+        <Card className="p-6 md:p-8 border-primary/30 bg-primary/5">
+          <h2 className="text-lg font-semibold tracking-tight inline-flex items-center gap-2">
+            <RefreshCw className={`size-5 text-primary ${updating ? "animate-spin" : ""}`} /> App version
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Not seeing new features? Force-refresh Pulse to download the latest version.
+          </p>
+          <div className="mt-5">
+            <Button onClick={onUpdateApp} disabled={updating} className="rounded-xl">
+              <RefreshCw className={`size-4 mr-2 ${updating ? "animate-spin" : ""}`} />
+              {updating ? "Updating…" : "Update App"}
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="p-6 md:p-8">
+          <h2 className="text-lg font-semibold tracking-tight inline-flex items-center gap-2">
+            <Bell className="size-5 text-primary" /> Notifications
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">Get a system notification when a new message arrives while Pulse is in the background.</p>
           <div className="mt-5 flex items-center justify-between gap-4">
             <Label htmlFor="notif" className="text-sm">Enable browser notifications</Label>
             <Switch id="notif" checked={notifEnabled} onCheckedChange={onToggleNotif} />
