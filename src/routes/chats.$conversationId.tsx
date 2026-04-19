@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useCall } from "@/lib/calls";
 import { ForwardDialog, type ForwardPayload } from "@/components/ForwardDialog";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 
 export const Route = createFileRoute("/chats/$conversationId")({
   component: ChatView,
@@ -297,23 +298,10 @@ function ChatView() {
 
   const sendAttachment = async (file: File) => {
     if (!user || uploading) return;
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error("Max file size is 25MB");
-      return;
-    }
     setUploading(true);
     try {
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
-      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("chat-media").upload(path, file, {
-        contentType: file.type || "application/octet-stream",
-        upsert: false,
-      });
-      if (upErr) throw upErr;
-      const { data: pub } = supabase.storage.from("chat-media").getPublicUrl(path);
-      const url = pub.publicUrl;
-      const kind = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : "file";
-      const content = kind === "file" ? file.name : "";
+      const { url, kind, filename } = await uploadAttachment(file, user.id);
+      const content = kind === "file" ? filename : "";
       const { error: insErr } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: user.id,
