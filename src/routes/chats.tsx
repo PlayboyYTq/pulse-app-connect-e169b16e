@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatChatListTime, initials } from "@/lib/format";
-import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon } from "lucide-react";
+import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
@@ -372,6 +372,30 @@ function ChatsLayout() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
+              {/* Askify AI pinned entry */}
+              {"askify ai".includes(search.toLowerCase()) || search === "" ? (
+                <Link
+                  to="/askify"
+                  className="mx-2 flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-accent/60"
+                  activeProps={{ className: "bg-accent" }}
+                >
+                  <div className="relative">
+                    <Avatar className="size-12 ring-2 ring-primary/30">
+                      <AvatarFallback className="bg-gradient-to-br from-violet-500 via-fuchsia-500 to-blue-500 text-white">
+                        <Sparkles className="size-5" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="truncate font-semibold">Askify AI</span>
+                      <span className="text-[11px] text-muted-foreground shrink-0">Always on</span>
+                    </div>
+                    <p className="truncate text-sm text-muted-foreground">Ask me anything — powered by AI</p>
+                  </div>
+                </Link>
+              ) : null}
               {filtered.length === 0 && (
                 <div className="px-6 py-16 text-center">
                   <div className="mx-auto size-12 rounded-2xl bg-accent grid place-items-center mb-3">
