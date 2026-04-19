@@ -152,8 +152,8 @@ function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-hidden bg-background px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl items-center gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+    <div className="min-h-dvh bg-background px-4 py-6 md:px-6 md:py-8">
+      <div className="mx-auto grid min-h-[calc(100dvh-3rem)] max-w-6xl items-center gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className="surface-glass order-2 rounded-[2rem] border-border/70 p-5 shadow-none md:p-7 lg:order-1">
           <div className="mx-auto mb-5 grid size-18 place-items-center rounded-[1.6rem] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--color-primary)_90%,white_10%),color-mix(in_oklab,var(--color-accent)_80%,var(--color-primary)_20%))] text-primary-foreground shadow-[0_18px_40px_-24px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]">
             <MessageCircle className="size-8" />
