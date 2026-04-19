@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatChatListTime, initials } from "@/lib/format";
-import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon } from "lucide-react";
+import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
