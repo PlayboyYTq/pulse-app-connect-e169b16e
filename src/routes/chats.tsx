@@ -576,6 +576,30 @@ function ChatsLayout() {
                 );
               })}
             </div>
+              </>
+            )}
+            {topTab === "status" && (
+              <div className="flex-1 grid place-items-center px-6 text-center">
+                <div>
+                  <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-accent text-accent-foreground">
+                    <Sparkles className="size-5" />
+                  </div>
+                  <p className="font-medium">Status</p>
+                  <p className="text-sm text-muted-foreground mt-1">Share moments that disappear in 24h.<br />Coming soon.</p>
+                </div>
+              </div>
+            )}
+            {topTab === "calls" && (
+              <div className="flex-1 grid place-items-center px-6 text-center">
+                <div>
+                  <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-accent text-accent-foreground">
+                    <MessageCircle className="size-5" />
+                  </div>
+                  <p className="font-medium">Calls</p>
+                  <p className="text-sm text-muted-foreground mt-1">Recent voice & video calls will show here.<br />Coming soon.</p>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <FriendsPanel />
