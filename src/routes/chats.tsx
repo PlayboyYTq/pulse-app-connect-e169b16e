@@ -434,8 +434,8 @@ function ChatsLayout() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {/* Askify AI pinned entry */}
-              {"askify ai".includes(search.toLowerCase()) || search === "" ? (
+              {/* Askify AI pinned entry — only after user has chatted with AI */}
+              {hasUsedAskify() && ("askify ai".includes(search.toLowerCase()) || search === "") ? (
                 <Link
                   to="/askify"
                   className="mx-2 flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-accent/60"
