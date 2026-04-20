@@ -13,6 +13,7 @@ import { initials } from "@/lib/format";
 import { ArrowLeft, Camera, ShieldOff, Loader2, LogOut, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppLoader } from "@/components/AppLoader";
+import { isDesktopDevice } from "@/lib/device";
 
 export const Route = createFileRoute("/profile")({
   component: ProfilePage,
@@ -26,6 +27,10 @@ function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
 
   const handleSignOut = async () => {
+    if (!isDesktopDevice()) {
+      toast.error("Sign out is only available on a laptop or PC. On mobile, your session stays active.");
+      return;
+    }
     await signOut();
     navigate({ to: "/auth" });
     toast.success("Signed out");
@@ -295,11 +300,17 @@ function ProfilePage() {
 
         <Card className="p-6 md:p-8">
           <h2 className="text-lg font-semibold tracking-tight">Account</h2>
-          <p className="text-sm text-muted-foreground mt-1">Sign out of this device or permanently delete your account.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isDesktopDevice()
+              ? "Sign out of this device or permanently delete your account."
+              : "Sign-out is disabled on mobile to protect your chat history. You can permanently delete your account below."}
+          </p>
           <div className="mt-5 flex flex-col sm:flex-row gap-3">
-            <Button variant="outline" className="rounded-xl" onClick={handleSignOut}>
-              <LogOut className="size-4 mr-2" /> Sign out
-            </Button>
+            {isDesktopDevice() && (
+              <Button variant="outline" className="rounded-xl" onClick={handleSignOut}>
+                <LogOut className="size-4 mr-2" /> Sign out
+              </Button>
+            )}
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="rounded-xl" disabled={deleting}>
