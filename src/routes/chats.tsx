@@ -144,6 +144,7 @@ function ChatsLayout() {
       const other = profileMap.get(otherId) ?? { id: otherId, name: "Unknown", avatar_url: null, status: "offline" };
       return {
         conversationId: c.id,
+        otherUserId: otherId,
         isGroup: false,
         title: other.name,
         avatarUrl: other.avatar_url,
@@ -162,6 +163,8 @@ function ChatsLayout() {
     }));
     const merged = [...convItems, ...groupItems].sort((a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt));
     setChats(merged);
+    setChatsLoaded(true);
+    saveChatsCache(user.id, merged);
   };
 
   const loadUnread = async () => {
@@ -316,13 +319,8 @@ function ChatsLayout() {
     return () => clearTimeout(t);
   }, [user?.id]);
 
-  if (loading) {
-    return <AppLoader title="Opening Pulse" detail="Restoring your session and loading chats…" />;
-  }
-
-  if (!user) {
-    return <AppLoader title="Redirecting to sign in" detail="Please wait a moment…" />;
-  }
+  // No more blocking AppLoader — render the shell immediately and show
+  // skeletons inside the chat list while data loads. Auth guard runs in effect.
 
   return (
     <div className="h-screen flex bg-background">
@@ -462,7 +460,7 @@ function ChatsLayout() {
                           {c.isGroup ? <Users className="size-5" /> : initials(c.title)}
                         </AvatarFallback>
                       </Avatar>
-                      {!c.isGroup && c.status === "online" && (
+                      {!c.isGroup && isOnline(c.otherUserId) && (
                         <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
                       )}
                     </div>
