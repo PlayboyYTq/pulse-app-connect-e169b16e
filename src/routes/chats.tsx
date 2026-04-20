@@ -78,6 +78,7 @@ function ChatsLayout() {
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
   const [tab, setTab] = useState<"chats" | "friends">("chats");
+  const [topTab, setTopTab] = useState<"chats" | "status" | "calls">("chats");
   const [chats, setChats] = useState<ChatItem[]>(() => loadChatsCache(undefined));
   const [chatsLoaded, setChatsLoaded] = useState(false);
   const [search, setSearch] = useState("");
