@@ -36,6 +36,7 @@ type Profile = { id: string; name: string; avatar_url: string | null; status: st
 type ChatItem = {
   conversationId?: string;
   groupId?: string;
+  otherUserId?: string;
   isGroup: boolean;
   title: string;
   avatarUrl: string | null;
