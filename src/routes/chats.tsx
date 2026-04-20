@@ -19,6 +19,8 @@ import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/l
 import { isDesktopDevice } from "@/lib/device";
 import { usePresence } from "@/lib/presence";
 import { ChatListSkeleton } from "@/components/ChatListSkeleton";
+import { StatusTab } from "@/components/StatusTab";
+import { CallsTab } from "@/components/CallsTab";
 
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
@@ -579,26 +581,10 @@ function ChatsLayout() {
               </>
             )}
             {topTab === "status" && (
-              <div className="flex-1 grid place-items-center px-6 text-center">
-                <div>
-                  <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-accent text-accent-foreground">
-                    <Sparkles className="size-5" />
-                  </div>
-                  <p className="font-medium">Status</p>
-                  <p className="text-sm text-muted-foreground mt-1">Share moments that disappear in 24h.<br />Coming soon.</p>
-                </div>
-              </div>
+              <StatusTab />
             )}
             {topTab === "calls" && (
-              <div className="flex-1 grid place-items-center px-6 text-center">
-                <div>
-                  <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-accent text-accent-foreground">
-                    <MessageCircle className="size-5" />
-                  </div>
-                  <p className="font-medium">Calls</p>
-                  <p className="text-sm text-muted-foreground mt-1">Recent voice & video calls will show here.<br />Coming soon.</p>
-                </div>
-              </div>
+              <CallsTab />
             )}
           </>
         ) : (
