@@ -78,6 +78,7 @@ function ChatsLayout() {
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
   const [tab, setTab] = useState<"chats" | "friends">("chats");
+  const [topTab, setTopTab] = useState<"chats" | "status" | "calls">("chats");
   const [chats, setChats] = useState<ChatItem[]>(() => loadChatsCache(undefined));
   const [chatsLoaded, setChatsLoaded] = useState(false);
   const [search, setSearch] = useState("");
@@ -227,7 +228,42 @@ function ChatsLayout() {
         { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
           const m = payload.new as { id: string; conversation_id: string; sender_id: string; content: string; status: string };
-          loadChats();
+          // Patch chat list locally for instant update (no full refetch).
+          const createdAt = (payload.new as { created_at?: string }).created_at ?? new Date().toISOString();
+          setChats((prev) => {
+            const key = m.conversation_id;
+            if (!key) return prev;
+            const idx = prev.findIndex((c) => c.conversationId === key);
+            if (idx === -1) {
+              // Conversation not in cache yet — fall back to full reload.
+              loadChats();
+              return prev;
+            }
+            const updated: ChatItem = {
+              ...prev[idx],
+              lastMessage: { content: m.content, created_at: createdAt, sender_id: m.sender_id },
+              lastMessageAt: createdAt,
+            };
+            const next = [updated, ...prev.filter((_, i) => i !== idx)];
+            saveChatsCache(userIdRef.current, next);
+            return next;
+          });
+          // Also handle group messages
+          const groupId = (payload.new as { group_id?: string | null }).group_id;
+          if (groupId) {
+            setChats((prev) => {
+              const idx = prev.findIndex((c) => c.groupId === groupId);
+              if (idx === -1) { loadChats(); return prev; }
+              const updated: ChatItem = {
+                ...prev[idx],
+                lastMessage: { content: m.content, created_at: createdAt, sender_id: m.sender_id },
+                lastMessageAt: createdAt,
+              };
+              const next = [updated, ...prev.filter((_, i) => i !== idx)];
+              saveChatsCache(userIdRef.current, next);
+              return next;
+            });
+          }
           if (m.sender_id === userIdRef.current) return;
           // RLS already filters server-side; double-check client-side that this convo is mine.
           const { data: isMine } = await supabase
@@ -427,6 +463,28 @@ function ChatsLayout() {
 
         {tab === "chats" ? (
           <>
+            {/* WhatsApp-style top tabs */}
+            <div className="px-2 pt-2">
+              <div className="flex items-center gap-1 rounded-2xl bg-muted/40 p-1">
+                {(["chats", "status", "calls"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTopTab(t)}
+                    className={cn(
+                      "flex-1 h-9 rounded-xl text-sm font-medium capitalize transition-colors",
+                      topTab === t
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {topTab === "chats" && (
+              <>
             <div className="px-3 py-2">
               <div className="relative">
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -518,6 +576,30 @@ function ChatsLayout() {
                 );
               })}
             </div>
+              </>
+            )}
+            {topTab === "status" && (
+              <div className="flex-1 grid place-items-center px-6 text-center">
+                <div>
+                  <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-accent text-accent-foreground">
+                    <Sparkles className="size-5" />
+                  </div>
+                  <p className="font-medium">Status</p>
+                  <p className="text-sm text-muted-foreground mt-1">Share moments that disappear in 24h.<br />Coming soon.</p>
+                </div>
+              </div>
+            )}
+            {topTab === "calls" && (
+              <div className="flex-1 grid place-items-center px-6 text-center">
+                <div>
+                  <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-accent text-accent-foreground">
+                    <MessageCircle className="size-5" />
+                  </div>
+                  <p className="font-medium">Calls</p>
+                  <p className="text-sm text-muted-foreground mt-1">Recent voice & video calls will show here.<br />Coming soon.</p>
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <FriendsPanel />

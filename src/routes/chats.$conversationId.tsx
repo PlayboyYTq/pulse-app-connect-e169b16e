@@ -18,6 +18,7 @@ import { useCall } from "@/lib/calls";
 import { ForwardDialog, type ForwardPayload } from "@/components/ForwardDialog";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { uploadAttachment } from "@/lib/uploadAttachment";
+import { usePresence } from "@/lib/presence";
 
 export const Route = createFileRoute("/chats/$conversationId")({
   component: ChatView,
@@ -60,6 +61,7 @@ function ChatView() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { startCall, phase: callPhase } = useCall();
+  const { isOnline } = usePresence();
   const [other, setOther] = useState<Profile | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [reactions, setReactions] = useState<Reaction[]>([]);
@@ -386,8 +388,9 @@ function ChatView() {
   const subline = useMemo(() => {
     if (otherTyping) return "typing…";
     if (!other) return "";
-    return other.status === "online" ? "Online" : `Last seen ${formatTime(other.last_seen)}`;
-  }, [otherTyping, other]);
+    if (isOnline(other.id)) return "Online";
+    return other.last_seen ? `Last seen ${formatTime(other.last_seen)}` : "Offline";
+  }, [otherTyping, other, isOnline]);
 
   const visibleMessages = useMemo(() => messages.filter((m) => !hiddenIds.has(m.id)), [messages, hiddenIds]);
 
@@ -402,7 +405,7 @@ function ChatView() {
                 <AvatarImage src={other.avatar_url ?? undefined} />
                 <AvatarFallback>{initials(other.name)}</AvatarFallback>
               </Avatar>
-              {other.status === "online" && <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-online ring-2 ring-card" />}
+              {isOnline(other.id) && <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-online ring-2 ring-card" />}
             </div>
             <div className="min-w-0">
               <div className="font-semibold truncate">{other.name}</div>
