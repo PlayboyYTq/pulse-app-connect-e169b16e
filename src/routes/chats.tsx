@@ -544,24 +544,6 @@ function ChatsLayout() {
   );
 }
 
-function TabBtn({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "h-9 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5",
-        active ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {icon}
-      {label}
-      {badge ? (
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">{badge}</span>
-      ) : null}
-    </button>
-  );
-}
-
 function NewChatDialog({ open, onOpenChange, onCreated }: { open: boolean; onOpenChange: (b: boolean) => void; onCreated: (id: string) => void }) {
   const { user } = useAuth();
   const [q, setQ] = useState("");
