@@ -46,6 +46,17 @@ type ChatItem = {
 };
 
 const CHATS_CACHE_KEY = "pulse:chats-cache:v1";
+const ASKIFY_HISTORY_KEY = "askify-history-v1";
+
+function hasUsedAskify(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(ASKIFY_HISTORY_KEY);
+    if (!raw) return false;
+    const arr = JSON.parse(raw) as Array<{ role?: string }>;
+    return Array.isArray(arr) && arr.some((m) => m?.role === "user");
+  } catch { return false; }
+}
 
 function loadChatsCache(userId: string | undefined): ChatItem[] {
   if (!userId || typeof window === "undefined") return [];
