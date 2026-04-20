@@ -425,14 +425,6 @@ function ChatsLayout() {
           </div>
         </header>
 
-        {/* Top tabs */}
-        <div className="px-3 pt-3">
-          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/60 p-1.5">
-            <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" badge={totalUnread} />
-            <TabBtn active={tab === "friends"} onClick={() => setTab("friends")} icon={<Users className="size-4" />} label="Friends" badge={pendingRequests} />
-          </div>
-        </div>
-
         {tab === "chats" ? (
           <>
             <div className="px-3 py-2">
