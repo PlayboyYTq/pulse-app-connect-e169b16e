@@ -15,9 +15,10 @@ import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { AskifyFab } from "@/components/AskifyFab";
 import { playMessageSound } from "@/lib/sound";
-import { AppLoader } from "@/components/AppLoader";
 import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
 import { isDesktopDevice } from "@/lib/device";
+import { usePresence } from "@/lib/presence";
+import { ChatListSkeleton } from "@/components/ChatListSkeleton";
 
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
