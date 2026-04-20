@@ -15,9 +15,10 @@ import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
 import { AskifyFab } from "@/components/AskifyFab";
 import { playMessageSound } from "@/lib/sound";
-import { AppLoader } from "@/components/AppLoader";
 import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
 import { isDesktopDevice } from "@/lib/device";
+import { usePresence } from "@/lib/presence";
+import { ChatListSkeleton } from "@/components/ChatListSkeleton";
 
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
@@ -35,6 +36,7 @@ type Profile = { id: string; name: string; avatar_url: string | null; status: st
 type ChatItem = {
   conversationId?: string;
   groupId?: string;
+  otherUserId?: string;
   isGroup: boolean;
   title: string;
   avatarUrl: string | null;
@@ -43,12 +45,30 @@ type ChatItem = {
   lastMessageAt: string;
 };
 
+const CHATS_CACHE_KEY = "pulse:chats-cache:v1";
+
+function loadChatsCache(userId: string | undefined): ChatItem[] {
+  if (!userId || typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(`${CHATS_CACHE_KEY}:${userId}`);
+    if (!raw) return [];
+    return JSON.parse(raw) as ChatItem[];
+  } catch { return []; }
+}
+
+function saveChatsCache(userId: string | undefined, chats: ChatItem[]) {
+  if (!userId || typeof window === "undefined") return;
+  try { sessionStorage.setItem(`${CHATS_CACHE_KEY}:${userId}`, JSON.stringify(chats)); } catch { /* ignore */ }
+}
+
 function ChatsLayout() {
   const { user, profile, signOut, loading } = useAuth();
+  const { isOnline } = usePresence();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
   const [tab, setTab] = useState<"chats" | "friends">("chats");
-  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [chats, setChats] = useState<ChatItem[]>(() => loadChatsCache(undefined));
+  const [chatsLoaded, setChatsLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
@@ -59,6 +79,14 @@ function ChatsLayout() {
   const userIdRef = useRef<string | undefined>(undefined);
   userIdRef.current = user?.id;
   const listReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hydrate chats from cache as soon as we know the user (instant render).
+  useEffect(() => {
+    if (user?.id) {
+      const cached = loadChatsCache(user.id);
+      if (cached.length) setChats(cached);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -116,6 +144,7 @@ function ChatsLayout() {
       const other = profileMap.get(otherId) ?? { id: otherId, name: "Unknown", avatar_url: null, status: "offline" };
       return {
         conversationId: c.id,
+        otherUserId: otherId,
         isGroup: false,
         title: other.name,
         avatarUrl: other.avatar_url,
@@ -134,6 +163,8 @@ function ChatsLayout() {
     }));
     const merged = [...convItems, ...groupItems].sort((a, b) => +new Date(b.lastMessageAt) - +new Date(a.lastMessageAt));
     setChats(merged);
+    setChatsLoaded(true);
+    saveChatsCache(user.id, merged);
   };
 
   const loadUnread = async () => {
@@ -288,13 +319,8 @@ function ChatsLayout() {
     return () => clearTimeout(t);
   }, [user?.id]);
 
-  if (loading) {
-    return <AppLoader title="Opening Pulse" detail="Restoring your session and loading chats…" />;
-  }
-
-  if (!user) {
-    return <AppLoader title="Redirecting to sign in" detail="Please wait a moment…" />;
-  }
+  // No more blocking AppLoader — render the shell immediately and show
+  // skeletons inside the chat list while data loads. Auth guard runs in effect.
 
   return (
     <div className="h-screen flex bg-background">
@@ -406,7 +432,10 @@ function ChatsLayout() {
                   </div>
                 </Link>
               ) : null}
-              {filtered.length === 0 && (
+              {filtered.length === 0 && !chatsLoaded && (
+                <ChatListSkeleton />
+              )}
+              {filtered.length === 0 && chatsLoaded && (
                 <div className="px-6 py-16 text-center">
                   <div className="mx-auto size-12 rounded-2xl bg-accent grid place-items-center mb-3">
                     <MessageCircle className="size-5 text-accent-foreground" />
@@ -434,7 +463,7 @@ function ChatsLayout() {
                           {c.isGroup ? <Users className="size-5" /> : initials(c.title)}
                         </AvatarFallback>
                       </Avatar>
-                      {!c.isGroup && c.status === "online" && (
+                      {!c.isGroup && isOnline(c.otherUserId) && (
                         <span className="absolute bottom-0 right-0 size-3 rounded-full bg-online ring-2 ring-sidebar" />
                       )}
                     </div>

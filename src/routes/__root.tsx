@@ -2,6 +2,7 @@ import { Outlet, createRootRoute, HeadContent, Scripts } from "@tanstack/react-r
 import { useEffect } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth";
+import { PresenceProvider } from "@/lib/presence";
 import { CallProvider } from "@/lib/calls";
 import { CallScreen } from "@/components/CallScreen";
 import { Toaster } from "@/components/ui/sonner";
@@ -63,11 +64,13 @@ function RootComponent() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <CallProvider>
-          <Outlet />
-          <CallScreen />
-          <Toaster richColors position="top-center" />
-        </CallProvider>
+        <PresenceProvider>
+          <CallProvider>
+            <Outlet />
+            <CallScreen />
+            <Toaster richColors position="top-center" />
+          </CallProvider>
+        </PresenceProvider>
       </AuthProvider>
     </ThemeProvider>
   );
