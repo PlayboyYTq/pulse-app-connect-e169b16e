@@ -67,6 +67,7 @@ function ChatView() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [blockOpen, setBlockOpen] = useState(false);
@@ -189,6 +190,7 @@ function ChatView() {
         if (otherTypingTimerRef.current) clearTimeout(otherTypingTimerRef.current);
       })
       .subscribe((status) => {
+        if (import.meta.env.DEV) console.debug(`[rt:conv ${conversationId}]`, status);
         if (status === "SUBSCRIBED") {
           realtimeReadyRef.current = true;
           if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
@@ -299,8 +301,9 @@ function ChatView() {
   const sendAttachment = async (file: File) => {
     if (!user || uploading) return;
     setUploading(true);
+    setUploadPct(0);
     try {
-      const { url, kind, filename } = await uploadAttachment(file, user.id);
+      const { url, kind, filename } = await uploadAttachment(file, user.id, (p) => setUploadPct(p));
       const content = kind === "file" ? filename : "";
       const { error: insErr } = await supabase.from("messages").insert({
         conversation_id: conversationId,
@@ -314,6 +317,7 @@ function ChatView() {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
+      setUploadPct(0);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -690,6 +694,17 @@ function ChatView() {
         </div>
       )}
 
+      {uploading && (
+        <div className="px-4 pt-2">
+          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+            <span>Uploading attachment…</span>
+            <span className="font-medium tabular-nums">{uploadPct}%</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+            <div className="h-full bg-primary transition-all duration-150" style={{ width: `${uploadPct}%` }} />
+          </div>
+        </div>
+      )}
       <form onSubmit={send} className="p-3 md:p-4 border-t border-border bg-card/50 backdrop-blur flex items-center gap-2">
         <input
           ref={fileInputRef}
@@ -710,15 +725,7 @@ function ChatView() {
           disabled={uploading}
           aria-label="Attach file"
         >
-          {uploading ? (
-            <span className="inline-flex gap-0.5">
-              <span className="size-1 rounded-full bg-foreground/60 animate-bounce [animation-delay:-0.3s]" />
-              <span className="size-1 rounded-full bg-foreground/60 animate-bounce [animation-delay:-0.15s]" />
-              <span className="size-1 rounded-full bg-foreground/60 animate-bounce" />
-            </span>
-          ) : (
-            <Paperclip className="size-5" />
-          )}
+          <Paperclip className="size-5" />
         </Button>
         <Input
           ref={inputRef}

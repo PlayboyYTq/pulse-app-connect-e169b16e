@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { initials } from "@/lib/format";
-import { Crown, Shield, ShieldCheck, UserMinus, UserPlus, X, Save, Loader2 } from "lucide-react";
+import { Crown, Shield, ShieldCheck, UserMinus, UserPlus, X, Save, Loader2, LogOut, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -44,6 +46,7 @@ export function GroupSettingsDialog({
   onChanged: () => void;
 }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [members, setMembers] = useState<Member[]>([]);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [name, setName] = useState(group.name);
@@ -53,6 +56,10 @@ export function GroupSettingsDialog({
   const [savingInfo, setSavingInfo] = useState(false);
   const [savingPerms, setSavingPerms] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferTarget, setTransferTarget] = useState<string>("");
+  const [leaving, setLeaving] = useState(false);
 
   const canEditInfo = useMemo(() => roleAtLeast(myRole, group.who_can_edit_info), [myRole, group.who_can_edit_info]);
   const canManagePerms = myRole === "owner";
@@ -159,6 +166,52 @@ export function GroupSettingsDialog({
 
   const memberIds = new Set(members.map((m) => m.user_id));
   const eligibleFriends = friends.filter((f) => !memberIds.has(f.id));
+  const otherAdmins = members.filter((m) => m.role === "admin" && m.user_id !== user?.id);
+
+  const leaveGroup = async () => {
+    if (!user) return;
+    setLeaving(true);
+    const { error } = await supabase
+      .from("group_members")
+      .delete()
+      .eq("group_id", group.id)
+      .eq("user_id", user.id);
+    setLeaving(false);
+    if (error) return toast.error(error.message);
+    toast.success("You left the group");
+    setLeaveOpen(false);
+    onOpenChange(false);
+    navigate({ to: "/chats" });
+  };
+
+  const transferAndLeave = async () => {
+    if (!user || !transferTarget) return toast.error("Pick an admin to transfer to");
+    setLeaving(true);
+    // Promote target to owner, demote self to member, then remove self.
+    const { error: promoteErr } = await supabase
+      .from("group_members")
+      .update({ role: "owner" })
+      .eq("group_id", group.id)
+      .eq("user_id", transferTarget);
+    if (promoteErr) { setLeaving(false); return toast.error(promoteErr.message); }
+    const { error: demoteErr } = await supabase
+      .from("group_members")
+      .update({ role: "member" })
+      .eq("group_id", group.id)
+      .eq("user_id", user.id);
+    if (demoteErr) { setLeaving(false); return toast.error(demoteErr.message); }
+    const { error: leaveErr } = await supabase
+      .from("group_members")
+      .delete()
+      .eq("group_id", group.id)
+      .eq("user_id", user.id);
+    setLeaving(false);
+    if (leaveErr) return toast.error(leaveErr.message);
+    toast.success("Ownership transferred. You left the group.");
+    setTransferOpen(false);
+    onOpenChange(false);
+    navigate({ to: "/chats" });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -313,6 +366,26 @@ export function GroupSettingsDialog({
               })}
             </div>
           </section>
+
+          {/* Danger zone */}
+          <section className="space-y-2 border-t border-border pt-4">
+            <h3 className="font-semibold text-sm text-destructive">Danger zone</h3>
+            {myRole === "owner" ? (
+              otherAdmins.length > 0 ? (
+                <Button variant="outline" className="w-full justify-start text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setTransferOpen(true)}>
+                  <ArrowRightLeft className="size-4 mr-2" /> Transfer ownership & leave
+                </Button>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  As the owner you can't leave until you promote another member to admin and transfer ownership.
+                </p>
+              )
+            ) : (
+              <Button variant="outline" className="w-full justify-start text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setLeaveOpen(true)}>
+                <LogOut className="size-4 mr-2" /> Leave group
+              </Button>
+            )}
+          </section>
         </div>
 
         <DialogFooter>
@@ -321,6 +394,54 @@ export function GroupSettingsDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this group?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You won't receive new messages from this group. You can be re-added by an admin later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={leaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={leaveGroup} disabled={leaving} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {leaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <LogOut className="size-4 mr-2" />}
+              Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Transfer ownership</AlertDialogTitle>
+            <AlertDialogDescription>
+              Pick an admin to become the new owner. After the transfer you'll leave the group.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Select value={transferTarget} onValueChange={setTransferTarget}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose new owner" />
+              </SelectTrigger>
+              <SelectContent>
+                {otherAdmins.map((a) => (
+                  <SelectItem key={a.user_id} value={a.user_id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={leaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={transferAndLeave} disabled={leaving || !transferTarget} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {leaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <ArrowRightLeft className="size-4 mr-2" />}
+              Transfer & leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
