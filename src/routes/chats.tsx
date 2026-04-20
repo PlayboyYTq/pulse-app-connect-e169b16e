@@ -463,6 +463,28 @@ function ChatsLayout() {
 
         {tab === "chats" ? (
           <>
+            {/* WhatsApp-style top tabs */}
+            <div className="px-2 pt-2">
+              <div className="flex items-center gap-1 rounded-2xl bg-muted/40 p-1">
+                {(["chats", "status", "calls"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTopTab(t)}
+                    className={cn(
+                      "flex-1 h-9 rounded-xl text-sm font-medium capitalize transition-colors",
+                      topTab === t
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {topTab === "chats" && (
+              <>
             <div className="px-3 py-2">
               <div className="relative">
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
