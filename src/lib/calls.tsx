@@ -281,6 +281,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await new Promise((r) => setTimeout(r, 50));
       }
 
+      if (import.meta.env.DEV) console.debug("[call] sending offer to", peer.id, "callId=", callId);
       await sendToPeer({
         type: "offer",
         callId,
@@ -320,6 +321,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         await new Promise((r) => setTimeout(r, 50));
       }
 
+      if (import.meta.env.DEV) console.debug("[call] sending answer for callId=", state.callId);
       await sendToPeer({ type: "answer", callId: state.callId, from: user.id, sdp: answer });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Could not accept call";
