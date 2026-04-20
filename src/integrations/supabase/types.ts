@@ -397,6 +397,65 @@ export type Database = {
         }
         Relationships: []
       }
+      status_views: {
+        Row: {
+          status_id: string
+          viewed_at: string
+          viewer_id: string
+        }
+        Insert: {
+          status_id: string
+          viewed_at?: string
+          viewer_id: string
+        }
+        Update: {
+          status_id?: string
+          viewed_at?: string
+          viewer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "status_views_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "statuses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      statuses: {
+        Row: {
+          background: string | null
+          content: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          kind: string
+          media_url: string | null
+          user_id: string
+        }
+        Insert: {
+          background?: string | null
+          content?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind: string
+          media_url?: string | null
+          user_id: string
+        }
+        Update: {
+          background?: string | null
+          content?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          kind?: string
+          media_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_blocks: {
         Row: {
           blocked_id: string
