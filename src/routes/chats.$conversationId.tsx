@@ -405,7 +405,7 @@ function ChatView() {
                 <AvatarImage src={other.avatar_url ?? undefined} />
                 <AvatarFallback>{initials(other.name)}</AvatarFallback>
               </Avatar>
-              {other.status === "online" && <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-online ring-2 ring-card" />}
+              {isOnline(other.id) && <span className="absolute bottom-0 right-0 size-2.5 rounded-full bg-online ring-2 ring-card" />}
             </div>
             <div className="min-w-0">
               <div className="font-semibold truncate">{other.name}</div>
