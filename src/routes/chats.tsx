@@ -432,7 +432,10 @@ function ChatsLayout() {
                   </div>
                 </Link>
               ) : null}
-              {filtered.length === 0 && (
+              {filtered.length === 0 && !chatsLoaded && (
+                <ChatListSkeleton />
+              )}
+              {filtered.length === 0 && chatsLoaded && (
                 <div className="px-6 py-16 text-center">
                   <div className="mx-auto size-12 rounded-2xl bg-accent grid place-items-center mb-3">
                     <MessageCircle className="size-5 text-accent-foreground" />
