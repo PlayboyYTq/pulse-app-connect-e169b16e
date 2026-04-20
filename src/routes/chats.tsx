@@ -46,6 +46,17 @@ type ChatItem = {
 };
 
 const CHATS_CACHE_KEY = "pulse:chats-cache:v1";
+const ASKIFY_HISTORY_KEY = "askify-history-v1";
+
+function hasUsedAskify(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const raw = localStorage.getItem(ASKIFY_HISTORY_KEY);
+    if (!raw) return false;
+    const arr = JSON.parse(raw) as Array<{ role?: string }>;
+    return Array.isArray(arr) && arr.some((m) => m?.role === "user");
+  } catch { return false; }
+}
 
 function loadChatsCache(userId: string | undefined): ChatItem[] {
   if (!userId || typeof window === "undefined") return [];
@@ -351,6 +362,29 @@ function ChatsLayout() {
                 />
               </>
             )}
+            <button
+              type="button"
+              onClick={() => setTab((t) => (t === "friends" ? "chats" : "friends"))}
+              aria-label="Friends"
+              className={cn(
+                "relative size-9 rounded-full grid place-items-center transition-colors",
+                tab === "friends" ? "bg-accent text-accent-foreground" : "hover:bg-accent/60 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Users className="size-5" />
+              {pendingRequests > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center">
+                  {pendingRequests > 9 ? "9+" : pendingRequests}
+                </span>
+              )}
+            </button>
+            <Link
+              to="/askify"
+              aria-label="Askify AI"
+              className="relative size-9 rounded-full grid place-items-center text-white bg-gradient-to-br from-violet-500 via-fuchsia-500 to-blue-500 shadow shadow-violet-500/30 hover:scale-105 active:scale-95 transition-transform"
+            >
+              <Sparkles className="size-4.5" />
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full">
@@ -391,14 +425,6 @@ function ChatsLayout() {
           </div>
         </header>
 
-        {/* Top tabs */}
-        <div className="px-3 pt-3">
-          <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted/60 p-1.5">
-            <TabBtn active={tab === "chats"} onClick={() => setTab("chats")} icon={<MessageCircle className="size-4" />} label="Chats" badge={totalUnread} />
-            <TabBtn active={tab === "friends"} onClick={() => setTab("friends")} icon={<Users className="size-4" />} label="Friends" badge={pendingRequests} />
-          </div>
-        </div>
-
         {tab === "chats" ? (
           <>
             <div className="px-3 py-2">
@@ -408,8 +434,8 @@ function ChatsLayout() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {/* Askify AI pinned entry */}
-              {"askify ai".includes(search.toLowerCase()) || search === "" ? (
+              {/* Askify AI pinned entry — only after user has chatted with AI */}
+              {hasUsedAskify() && ("askify ai".includes(search.toLowerCase()) || search === "") ? (
                 <Link
                   to="/askify"
                   className="mx-2 flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors hover:bg-accent/60"
@@ -515,24 +541,6 @@ function ChatsLayout() {
       </main>
       {!params.conversationId && <AskifyFab />}
     </div>
-  );
-}
-
-function TabBtn({ active, onClick, icon, label, badge }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; badge?: number }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "h-9 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5",
-        active ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {icon}
-      {label}
-      {badge ? (
-        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">{badge}</span>
-      ) : null}
-    </button>
   );
 }
 
