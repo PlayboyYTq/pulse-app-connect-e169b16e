@@ -44,12 +44,30 @@ type ChatItem = {
   lastMessageAt: string;
 };
 
+const CHATS_CACHE_KEY = "pulse:chats-cache:v1";
+
+function loadChatsCache(userId: string | undefined): ChatItem[] {
+  if (!userId || typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(`${CHATS_CACHE_KEY}:${userId}`);
+    if (!raw) return [];
+    return JSON.parse(raw) as ChatItem[];
+  } catch { return []; }
+}
+
+function saveChatsCache(userId: string | undefined, chats: ChatItem[]) {
+  if (!userId || typeof window === "undefined") return;
+  try { sessionStorage.setItem(`${CHATS_CACHE_KEY}:${userId}`, JSON.stringify(chats)); } catch { /* ignore */ }
+}
+
 function ChatsLayout() {
   const { user, profile, signOut, loading } = useAuth();
+  const { isOnline } = usePresence();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
   const [tab, setTab] = useState<"chats" | "friends">("chats");
-  const [chats, setChats] = useState<ChatItem[]>([]);
+  const [chats, setChats] = useState<ChatItem[]>(() => loadChatsCache(undefined));
+  const [chatsLoaded, setChatsLoaded] = useState(false);
   const [search, setSearch] = useState("");
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
@@ -60,6 +78,14 @@ function ChatsLayout() {
   const userIdRef = useRef<string | undefined>(undefined);
   userIdRef.current = user?.id;
   const listReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hydrate chats from cache as soon as we know the user (instant render).
+  useEffect(() => {
+    if (user?.id) {
+      const cached = loadChatsCache(user.id);
+      if (cached.length) setChats(cached);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
