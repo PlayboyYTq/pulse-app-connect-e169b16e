@@ -228,7 +228,42 @@ function ChatsLayout() {
         { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
           const m = payload.new as { id: string; conversation_id: string; sender_id: string; content: string; status: string };
-          loadChats();
+          // Patch chat list locally for instant update (no full refetch).
+          const createdAt = (payload.new as { created_at?: string }).created_at ?? new Date().toISOString();
+          setChats((prev) => {
+            const key = m.conversation_id;
+            if (!key) return prev;
+            const idx = prev.findIndex((c) => c.conversationId === key);
+            if (idx === -1) {
+              // Conversation not in cache yet — fall back to full reload.
+              loadChats();
+              return prev;
+            }
+            const updated: ChatItem = {
+              ...prev[idx],
+              lastMessage: { content: m.content, created_at: createdAt, sender_id: m.sender_id },
+              lastMessageAt: createdAt,
+            };
+            const next = [updated, ...prev.filter((_, i) => i !== idx)];
+            saveChatsCache(userIdRef.current, next);
+            return next;
+          });
+          // Also handle group messages
+          const groupId = (payload.new as { group_id?: string | null }).group_id;
+          if (groupId) {
+            setChats((prev) => {
+              const idx = prev.findIndex((c) => c.groupId === groupId);
+              if (idx === -1) { loadChats(); return prev; }
+              const updated: ChatItem = {
+                ...prev[idx],
+                lastMessage: { content: m.content, created_at: createdAt, sender_id: m.sender_id },
+                lastMessageAt: createdAt,
+              };
+              const next = [updated, ...prev.filter((_, i) => i !== idx)];
+              saveChatsCache(userIdRef.current, next);
+              return next;
+            });
+          }
           if (m.sender_id === userIdRef.current) return;
           // RLS already filters server-side; double-check client-side that this convo is mine.
           const { data: isMine } = await supabase
