@@ -372,94 +372,118 @@ export function CallProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user) return;
     let disposed = false;
+    const log = (...args: unknown[]) => { if (import.meta.env.DEV) console.debug("[call]", ...args); };
 
-    const ch = supabase
-      .channel(userChannelName(user.id), { config: { broadcast: { self: false } } })
-      .on("broadcast", { event: "signal" }, async ({ payload }) => {
-        const sig = payload as SignalPayload;
-        if (!sig || disposed) return;
+    const subscribeChannel = () => {
+      const ch = supabase
+        .channel(userChannelName(user.id), { config: { broadcast: { self: false } } })
+        .on("broadcast", { event: "signal" }, async ({ payload }) => {
+          const sig = payload as SignalPayload;
+          if (!sig || disposed) return;
+          log("recv", sig.type, "callId=", sig.callId);
 
-        if (sig.type === "offer") {
-          // Reject if we're busy
-          if (pcRef.current || state.phase === "incoming" || state.phase === "outgoing") {
-            const tempCh = supabase.channel(userChannelName(sig.from.id), { config: { broadcast: { self: false } } });
-            tempCh.subscribe((st) => {
-              if (st !== "SUBSCRIBED") return;
-              tempCh.send({ type: "broadcast", event: "signal", payload: { type: "reject", callId: sig.callId, from: user.id } })
-                .finally(() => { try { supabase.removeChannel(tempCh); } catch { /* ignore */ } });
+          if (sig.type === "offer") {
+            // Reject if we're busy — auto-respond with reject so caller hears "User busy"
+            if (pcRef.current || state.phase === "incoming" || state.phase === "outgoing" || state.phase === "connecting" || state.phase === "connected") {
+              log("BUSY → auto-rejecting offer from", sig.from.id);
+              const tempCh = supabase.channel(userChannelName(sig.from.id), { config: { broadcast: { self: false } } });
+              tempCh.subscribe((st) => {
+                if (st !== "SUBSCRIBED") return;
+                tempCh.send({ type: "broadcast", event: "signal", payload: { type: "reject", callId: sig.callId, from: user.id } })
+                  .finally(() => { try { supabase.removeChannel(tempCh); } catch { /* ignore */ } });
+              });
+              return;
+            }
+            log("incoming offer from", sig.from.name, sig.mode);
+            incomingOfferRef.current = { sdp: sig.sdp, mode: sig.mode };
+            callIdRef.current = sig.callId;
+            peerIdRef.current = sig.from.id;
+            callRoleRef.current = "callee";
+            callModeRef.current = sig.mode;
+            wasConnectedRef.current = false;
+            ensurePeerChannel(sig.from.id);
+            setState({
+              phase: "incoming",
+              mode: sig.mode,
+              peer: sig.from,
+              callId: sig.callId,
+              localStream: null,
+              remoteStream: null,
+              micMuted: false,
+              cameraOff: false,
+              errorMessage: null,
+            });
+            incomingNotifRef.current = notifyAlways({
+              title: `Incoming ${sig.mode === "video" ? "video" : "voice"} call`,
+              body: `${sig.from.name} is calling…`,
+              icon: sig.from.avatar_url ?? "/icon-192.png",
+              tag: `call:${sig.callId}`,
+              requireInteraction: true,
             });
             return;
           }
-          incomingOfferRef.current = { sdp: sig.sdp, mode: sig.mode };
-          callIdRef.current = sig.callId;
-          peerIdRef.current = sig.from.id;
-          callRoleRef.current = "callee";
-          callModeRef.current = sig.mode;
-          wasConnectedRef.current = false;
-          ensurePeerChannel(sig.from.id);
-          setState({
-            phase: "incoming",
-            mode: sig.mode,
-            peer: sig.from,
-            callId: sig.callId,
-            localStream: null,
-            remoteStream: null,
-            micMuted: false,
-            cameraOff: false,
-            errorMessage: null,
-          });
-          // OS-level notification when app is backgrounded
-          incomingNotifRef.current = notifyAlways({
-            title: `Incoming ${sig.mode === "video" ? "video" : "voice"} call`,
-            body: `${sig.from.name} is calling…`,
-            icon: sig.from.avatar_url ?? "/icon-192.png",
-            tag: `call:${sig.callId}`,
-            requireInteraction: true,
-          });
-          return;
-        }
 
-        if (sig.callId !== callIdRef.current) return;
+          if (sig.callId !== callIdRef.current) {
+            log("ignored signal — callId mismatch", sig.callId, "vs", callIdRef.current);
+            return;
+          }
 
-        if (sig.type === "answer") {
-          const pc = pcRef.current;
-          if (!pc) return;
-          try {
-            await pc.setRemoteDescription(sig.sdp);
-            remoteSetRef.current = true;
-            setState((s) => (s.phase === "outgoing" ? { ...s, phase: "connecting" } : s));
-            await flushIce();
-          } catch {
-            // ignore
+          if (sig.type === "answer") {
+            const pc = pcRef.current;
+            if (!pc) return;
+            try {
+              log("applying remote answer");
+              await pc.setRemoteDescription(sig.sdp);
+              remoteSetRef.current = true;
+              setState((s) => (s.phase === "outgoing" ? { ...s, phase: "connecting" } : s));
+              await flushIce();
+            } catch (e) {
+              log("setRemoteDescription(answer) failed", e);
+            }
+          } else if (sig.type === "ice") {
+            const pc = pcRef.current;
+            if (!pc) return;
+            if (!remoteSetRef.current) {
+              pendingIceRef.current.push(sig.candidate);
+            } else {
+              try { await pc.addIceCandidate(sig.candidate); } catch (e) { log("addIceCandidate failed", e); }
+            }
+          } else if (sig.type === "reject" || sig.type === "end") {
+            log("remote", sig.type);
+            closeIncomingNotif();
+            if (!wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+              const outcome = sig.type === "reject" ? "rejected" : (callRoleRef.current === "caller" ? "missed" : "ended");
+              void logCallEvent(outcome as "missed" | "rejected" | "ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+            } else if (wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
+              void logCallEvent("ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
+            }
+            setState((s) => ({ ...s, phase: "ended" }));
+            cleanup();
           }
-        } else if (sig.type === "ice") {
-          const pc = pcRef.current;
-          if (!pc) return;
-          if (!remoteSetRef.current) {
-            pendingIceRef.current.push(sig.candidate);
-          } else {
-            try { await pc.addIceCandidate(sig.candidate); } catch { /* ignore */ }
+        })
+        .subscribe((status) => {
+          log("my-channel status:", status);
+          if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+            // Auto-reconnect personal call channel after a short delay so we
+            // never miss an incoming call.
+            if (myChannelRef.current === ch) {
+              try { supabase.removeChannel(ch); } catch { /* ignore */ }
+              myChannelRef.current = null;
+              if (!disposed) {
+                setTimeout(() => { if (!disposed && !myChannelRef.current) myChannelRef.current = subscribeChannel(); }, 1000);
+              }
+            }
           }
-        } else if (sig.type === "reject" || sig.type === "end") {
-          closeIncomingNotif();
-          // If the remote rejected/ended before we ever connected, log as missed for callee / no-answer
-          if (!wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
-            const outcome = sig.type === "reject" ? "rejected" : (callRoleRef.current === "caller" ? "missed" : "ended");
-            void logCallEvent(outcome as "missed" | "rejected" | "ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
-          } else if (wasConnectedRef.current && callRoleRef.current && peerIdRef.current) {
-            void logCallEvent("ended", callModeRef.current, callRoleRef.current, peerIdRef.current);
-          }
-          setState((s) => ({ ...s, phase: "ended" }));
-          cleanup();
-        }
-      })
-      .subscribe();
+        });
+      return ch;
+    };
 
-    myChannelRef.current = ch;
+    myChannelRef.current = subscribeChannel();
 
     return () => {
       disposed = true;
-      try { supabase.removeChannel(ch); } catch { /* ignore */ }
+      const ch = myChannelRef.current;
+      if (ch) { try { supabase.removeChannel(ch); } catch { /* ignore */ } }
       myChannelRef.current = null;
     };
   }, [user, ensurePeerChannel, flushIce, cleanup, state.phase, closeIncomingNotif, logCallEvent]);
