@@ -150,10 +150,21 @@ function AskifyPage() {
             <div
               key={m.id}
               className={cn(
-                "flex animate-fade-in",
+                "group flex animate-fade-in items-end gap-1.5",
                 m.role === "user" ? "justify-end" : "justify-start",
               )}
             >
+              {m.role === "user" && (
+                <button
+                  type="button"
+                  onClick={() => setMessages((prev) => prev.filter((x) => x.id !== m.id))}
+                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  aria-label="Delete message"
+                  title="Delete message"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
               <div
                 className={cn(
                   "max-w-[80%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-sm shadow-sm",
@@ -164,6 +175,17 @@ function AskifyPage() {
               >
                 {m.content}
               </div>
+              {m.role === "assistant" && (
+                <button
+                  type="button"
+                  onClick={() => setMessages((prev) => prev.filter((x) => x.id !== m.id))}
+                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                  aria-label="Delete message"
+                  title="Delete message"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           ))}
           {loading && (
