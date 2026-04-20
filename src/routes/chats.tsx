@@ -17,6 +17,7 @@ import { AskifyFab } from "@/components/AskifyFab";
 import { playMessageSound } from "@/lib/sound";
 import { AppLoader } from "@/components/AppLoader";
 import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
+import { isDesktopDevice } from "@/lib/device";
 
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
@@ -347,9 +348,18 @@ function ChatsLayout() {
                   <Link to="/download"><Download className="size-4 mr-2" /> Download APK</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={async () => { await signOut(); navigate({ to: "/auth" }); toast.success("Signed out"); }}>
-                  <LogOut className="size-4 mr-2" /> Sign out
-                </DropdownMenuItem>
+                {isDesktopDevice() ? (
+                  <DropdownMenuItem onClick={async () => { await signOut(); navigate({ to: "/auth" }); toast.success("Signed out"); }}>
+                    <LogOut className="size-4 mr-2" /> Sign out
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={(e) => { e.preventDefault(); toast.info("Sign out is only available on laptop or PC."); }}
+                    className="opacity-60"
+                  >
+                    <LogOut className="size-4 mr-2" /> Sign out (PC only)
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
