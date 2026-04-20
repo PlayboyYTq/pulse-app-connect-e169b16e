@@ -366,6 +366,26 @@ export function GroupSettingsDialog({
               })}
             </div>
           </section>
+
+          {/* Danger zone */}
+          <section className="space-y-2 border-t border-border pt-4">
+            <h3 className="font-semibold text-sm text-destructive">Danger zone</h3>
+            {myRole === "owner" ? (
+              otherAdmins.length > 0 ? (
+                <Button variant="outline" className="w-full justify-start text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setTransferOpen(true)}>
+                  <ArrowRightLeft className="size-4 mr-2" /> Transfer ownership & leave
+                </Button>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  As the owner you can't leave until you promote another member to admin and transfer ownership.
+                </p>
+              )
+            ) : (
+              <Button variant="outline" className="w-full justify-start text-destructive border-destructive/40 hover:bg-destructive/10" onClick={() => setLeaveOpen(true)}>
+                <LogOut className="size-4 mr-2" /> Leave group
+              </Button>
+            )}
+          </section>
         </div>
 
         <DialogFooter>
@@ -374,6 +394,54 @@ export function GroupSettingsDialog({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={leaveOpen} onOpenChange={setLeaveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this group?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You won't receive new messages from this group. You can be re-added by an admin later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={leaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={leaveGroup} disabled={leaving} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {leaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <LogOut className="size-4 mr-2" />}
+              Leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Transfer ownership</AlertDialogTitle>
+            <AlertDialogDescription>
+              Pick an admin to become the new owner. After the transfer you'll leave the group.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Select value={transferTarget} onValueChange={setTransferTarget}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choose new owner" />
+              </SelectTrigger>
+              <SelectContent>
+                {otherAdmins.map((a) => (
+                  <SelectItem key={a.user_id} value={a.user_id}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={leaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={transferAndLeave} disabled={leaving || !transferTarget} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {leaving ? <Loader2 className="size-4 mr-2 animate-spin" /> : <ArrowRightLeft className="size-4 mr-2" />}
+              Transfer & leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
