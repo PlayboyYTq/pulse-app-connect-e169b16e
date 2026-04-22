@@ -40,7 +40,7 @@ export const Route = createFileRoute("/api/send-verification")({
           // Generate a Supabase signup verification link via admin
           const origin = new URL(request.url).origin;
           const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-            type: "signup",
+            type: "magiclink",
             email,
             options: { redirectTo: `${origin}/auth` },
           });
