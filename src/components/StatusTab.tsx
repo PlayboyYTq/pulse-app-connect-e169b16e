@@ -473,6 +473,22 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
       {paused && !isMine && (
         <span className="sr-only"><Pause className="size-3" /> paused</span>
       )}
+      <AlertDialog open={confirmDelete} onOpenChange={(o) => { setConfirmDelete(o); if (!o) setPaused(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This status will be permanently removed for everyone. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={remove} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
