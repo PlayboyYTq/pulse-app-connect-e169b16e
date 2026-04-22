@@ -89,6 +89,7 @@ function ChatsLayout() {
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [missedCount, setMissedCount] = useState(0);
   const [listChannelVersion, setListChannelVersion] = useState(0);
   const activeConvRef = useRef<string | undefined>(undefined);
   activeConvRef.current = params.conversationId;
@@ -418,13 +419,6 @@ function ChatsLayout() {
                 </span>
               )}
             </button>
-            <Link
-              to="/askify"
-              aria-label="Askify AI"
-              className="relative size-9 rounded-full grid place-items-center text-white bg-gradient-to-br from-violet-500 via-fuchsia-500 to-blue-500 shadow shadow-violet-500/30 hover:scale-105 active:scale-95 transition-transform"
-            >
-              <Sparkles className="size-4.5" />
-            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full">
