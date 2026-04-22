@@ -24,6 +24,27 @@ export const Route = createFileRoute("/chats/$conversationId")({
   component: ChatView,
 });
 
+const CONV_CACHE_PREFIX = "pulse:conv-cache:v1";
+const MAX_CACHED_MSGS = 80;
+function loadConvCache(conversationId: string): { other?: Profile; messages?: Message[] } {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(`${CONV_CACHE_PREFIX}:${conversationId}`);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch { return {}; }
+}
+function saveConvCache(conversationId: string, payload: { other: Profile | null; messages: Message[] }) {
+  if (typeof window === "undefined") return;
+  try {
+    const trimmed = payload.messages.slice(-MAX_CACHED_MSGS);
+    sessionStorage.setItem(
+      `${CONV_CACHE_PREFIX}:${conversationId}`,
+      JSON.stringify({ other: payload.other, messages: trimmed }),
+    );
+  } catch { /* ignore quota */ }
+}
+
 type Message = {
   id: string;
   conversation_id: string;
