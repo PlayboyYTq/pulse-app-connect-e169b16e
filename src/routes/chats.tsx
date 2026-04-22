@@ -7,13 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatChatListTime, initials } from "@/lib/format";
-import { MessageCircle, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { MessageCircle, MessageSquare, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles, CircleDot, PhoneCall, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
-import { AskifyFab } from "@/components/AskifyFab";
 import { playMessageSound } from "@/lib/sound";
 import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
 import { isDesktopDevice } from "@/lib/device";
@@ -81,8 +81,9 @@ function ChatsLayout() {
   const { isOnline } = usePresence();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
-  const [tab, setTab] = useState<"chats" | "friends">("chats");
   const [topTab, setTopTab] = useState<"chats" | "status" | "calls">("chats");
+  const [fabOpen, setFabOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [chats, setChats] = useState<ChatItem[]>(() => loadChatsCache(undefined));
   const [chatsLoaded, setChatsLoaded] = useState(false);
   const [search, setSearch] = useState("");
@@ -443,35 +444,15 @@ function ChatsLayout() {
             <span className="font-semibold tracking-tight">Pulse</span>
           </div>
           <div className="flex items-center gap-1">
-            {tab === "chats" && (
-              <>
-                <CreateGroupDialog onCreated={(id) => navigate({ to: "/groups/$groupId", params: { groupId: id } })} />
-                <NewChatDialog
-                  open={newOpen}
-                  onOpenChange={setNewOpen}
-                  onCreated={(id) => {
-                    setNewOpen(false);
-                    navigate({ to: "/chats/$conversationId", params: { conversationId: id } });
-                  }}
-                />
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => setTab((t) => (t === "friends" ? "chats" : "friends"))}
-              aria-label="Friends"
-              className={cn(
-                "relative size-9 rounded-full grid place-items-center transition-colors",
-                tab === "friends" ? "bg-accent text-accent-foreground" : "hover:bg-accent/60 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Users className="size-5" />
-              {pendingRequests > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center">
-                  {pendingRequests > 9 ? "9+" : pendingRequests}
-                </span>
-              )}
-            </button>
+            <CreateGroupDialog onCreated={(id) => navigate({ to: "/groups/$groupId", params: { groupId: id } })} />
+            <NewChatDialog
+              open={newOpen}
+              onOpenChange={setNewOpen}
+              onCreated={(id) => {
+                setNewOpen(false);
+                navigate({ to: "/chats/$conversationId", params: { conversationId: id } });
+              }}
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full">
@@ -512,36 +493,7 @@ function ChatsLayout() {
           </div>
         </header>
 
-        {tab === "chats" ? (
-          <>
-            {/* WhatsApp-style top tabs */}
-            <div className="px-2 pt-2">
-              <div className="flex items-center gap-1 rounded-2xl bg-muted/40 p-1">
-                {(["chats", "status", "calls"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => {
-                      setTopTab(t);
-                      if (t === "calls") void markMissedSeen();
-                    }}
-                    className={cn(
-                      "flex-1 h-9 rounded-xl text-sm font-medium capitalize transition-colors",
-                      topTab === t
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                  >
-                    <span className="relative inline-flex items-center justify-center">
-                      {t}
-                      {t === "calls" && missedCount > 0 && topTab !== "calls" && (
-                        <span className="ml-1.5 inline-block size-2 rounded-full bg-online" aria-label={`${missedCount} missed calls`} />
-                      )}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+        <div className="flex-1 flex flex-col min-h-0">
             {topTab === "chats" && (
               <>
             <div className="px-3 py-2">
@@ -643,10 +595,45 @@ function ChatsLayout() {
             {topTab === "calls" && (
               <CallsTab />
             )}
-          </>
-        ) : (
-          <FriendsPanel />
-        )}
+        </div>
+
+        {/* Bottom tab bar (WhatsApp style) */}
+        <nav className="border-t border-border/70 bg-card/80 backdrop-blur-xl px-2 py-1.5 flex items-center justify-around">
+          {([
+            { key: "chats", label: "Chats", Icon: MessageSquare, badge: 0 },
+            { key: "status", label: "Status", Icon: CircleDot, badge: 0 },
+            { key: "calls", label: "Calls", Icon: PhoneCall, badge: missedCount },
+          ] as const).map(({ key, label, Icon, badge }) => {
+            const active = topTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setTopTab(key);
+                  if (key === "calls") void markMissedSeen();
+                }}
+                className={cn(
+                  "relative flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[11px] font-medium transition-all duration-200",
+                  active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span className={cn(
+                  "grid place-items-center size-9 rounded-2xl transition-all duration-200",
+                  active ? "bg-primary/15 scale-105" : "bg-transparent",
+                )}>
+                  <Icon className="size-5" />
+                  {badge > 0 && (
+                    <span className="absolute top-0.5 right-[26%] min-w-[16px] h-4 px-1 rounded-full bg-online text-[10px] font-bold text-white grid place-items-center ring-2 ring-card">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </span>
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </aside>
 
       <main className={cn("flex-1 flex flex-col overflow-hidden", showSidebarOnMobile ? "hidden md:flex" : "flex")}>
@@ -664,7 +651,26 @@ function ChatsLayout() {
           </div>
         )}
       </main>
-      {!params.conversationId && <AskifyFab />}
+      {!params.conversationId && (
+        <ChatFabStack
+          open={fabOpen}
+          onToggle={() => setFabOpen((v) => !v)}
+          onAskify={() => { setFabOpen(false); navigate({ to: "/askify" }); }}
+          onFriends={() => { setFabOpen(false); setFriendsOpen(true); }}
+          onNewChat={() => { setFabOpen(false); setNewOpen(true); }}
+          pendingRequests={pendingRequests}
+        />
+      )}
+      <Sheet open={friendsOpen} onOpenChange={setFriendsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="px-4 py-3 border-b">
+            <SheetTitle className="flex items-center gap-2"><Users className="size-5" /> Friends</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            <FriendsPanel />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -767,5 +773,87 @@ export function MobileBack() {
     <Button size="icon" variant="ghost" className="md:hidden -ml-2" onClick={() => navigate({ to: "/chats" })}>
       <ArrowLeft className="size-5" />
     </Button>
+  );
+}
+
+function ChatFabStack({
+  open,
+  onToggle,
+  onAskify,
+  onFriends,
+  onNewChat,
+  pendingRequests,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  onAskify: () => void;
+  onFriends: () => void;
+  onNewChat: () => void;
+  pendingRequests: number;
+}) {
+  return (
+    <div className="fixed bottom-20 right-5 z-40 flex flex-col items-end gap-3">
+      {/* Mini actions */}
+      <div
+        className={cn(
+          "flex flex-col items-end gap-3 transition-all duration-200 origin-bottom-right",
+          open ? "opacity-100 translate-y-0 scale-100" : "pointer-events-none opacity-0 translate-y-2 scale-95",
+        )}
+      >
+        <button
+          type="button"
+          onClick={onAskify}
+          aria-label="Open Askify AI"
+          className="group flex items-center gap-2"
+        >
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-card shadow-md border border-border/60">Askify AI</span>
+          <span className="grid size-12 place-items-center rounded-full bg-gradient-to-br from-violet-500 via-fuchsia-500 to-blue-500 text-white shadow-lg shadow-violet-500/40 transition-transform group-hover:scale-110">
+            <Sparkles className="size-5" />
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onFriends}
+          aria-label="Open Friends"
+          className="group relative flex items-center gap-2"
+        >
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-card shadow-md border border-border/60">Friends</span>
+          <span className="relative grid size-12 place-items-center rounded-full bg-card text-foreground border border-border shadow-lg transition-transform group-hover:scale-110">
+            <Users className="size-5" />
+            {pendingRequests > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold grid place-items-center ring-2 ring-card">
+                {pendingRequests > 9 ? "9+" : pendingRequests}
+              </span>
+            )}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onNewChat}
+          aria-label="Start new chat"
+          className="group flex items-center gap-2"
+        >
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-card shadow-md border border-border/60">New chat</span>
+          <span className="grid size-12 place-items-center rounded-full bg-card text-foreground border border-border shadow-lg transition-transform group-hover:scale-110">
+            <MessageSquare className="size-5" />
+          </span>
+        </button>
+      </div>
+
+      {/* Main FAB */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={open ? "Close menu" : "Open menu"}
+        aria-expanded={open}
+        className={cn(
+          "grid size-14 place-items-center rounded-full text-primary-foreground shadow-xl transition-all duration-200",
+          "bg-gradient-to-br from-primary via-primary to-primary/80 shadow-primary/40",
+          open ? "rotate-45 scale-95" : "hover:scale-110 active:scale-95",
+        )}
+      >
+        {open ? <X className="size-6" /> : <Plus className="size-6" />}
+      </button>
+    </div>
   );
 }
