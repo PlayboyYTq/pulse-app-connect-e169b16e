@@ -177,3 +177,28 @@
     animation: bounceSlow 2.4s ease-in-out infinite;
   }
 }
+
+/* WhatsApp-style chat wallpaper. Subtle SVG doodle pattern, dimmed, themed. */
+@layer utilities {
+  .chat-wallpaper {
+    background-color: color-mix(in oklab, var(--color-background) 92%, transparent);
+    background-image:
+      radial-gradient(circle at 20% 18%, color-mix(in oklab, var(--color-primary) 10%, transparent) 0, transparent 40%),
+      radial-gradient(circle at 80% 75%, color-mix(in oklab, var(--color-primary) 8%, transparent) 0, transparent 45%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'><g fill='none' stroke='%239aa3b2' stroke-width='1' stroke-linecap='round' opacity='0.18'><circle cx='30' cy='30' r='10'/><path d='M70 20 q10 -10 20 0 t20 0'/><circle cx='140' cy='40' r='6'/><path d='M20 90 l12 -12 l12 12 l-12 12 z'/><circle cx='90' cy='95' r='14'/><path d='M130 110 q10 10 20 0'/><circle cx='40' cy='150' r='5'/><path d='M90 150 l10 -10 l10 10'/><circle cx='160' cy='150' r='9'/></g></svg>");
+    background-size: auto, auto, 220px 220px;
+    background-attachment: fixed, fixed, fixed;
+  }
+  .dark .chat-wallpaper {
+    background-color: color-mix(in oklab, var(--color-background) 96%, black 4%);
+  }
+
+  .bubble-shadow-out {
+    box-shadow: 0 1px 1px color-mix(in oklab, var(--color-primary) 22%, transparent),
+                0 6px 18px -10px color-mix(in oklab, var(--color-primary) 35%, transparent);
+  }
+  .bubble-shadow-in {
+    box-shadow: 0 1px 1px color-mix(in oklab, var(--color-foreground) 8%, transparent),
+                0 6px 18px -12px color-mix(in oklab, var(--color-foreground) 18%, transparent);
+  }
+}
