@@ -254,6 +254,12 @@ function ChatView() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, otherTyping]);
 
+  // Persist a small message tail so the next open is instant.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    saveConvCache(conversationId, { other, messages });
+  }, [conversationId, other, messages]);
+
   const broadcastTyping = (event: "typing" | "stop_typing") => {
     const ch = channelRef.current;
     if (!ch || !user || !realtimeReadyRef.current) return;
