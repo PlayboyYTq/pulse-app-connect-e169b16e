@@ -234,7 +234,7 @@ function AuthPage() {
                   <CheckCircle2 className="mt-0.5 size-4 text-primary" />
                   <div className="space-y-2">
                     <p>{verificationText}</p>
-                    <Button type="button" variant="ghost" onClick={resendVerification} disabled={resending} className="h-auto px-0 text-primary hover:bg-transparent hover:text-primary/80">
+                    <Button type="button" variant="ghost" onClick={resendVerification} disabled={resending || cooldown > 0} className="h-auto px-0 text-primary hover:bg-transparent hover:text-primary/80">
                       {resending ? "Sending…" : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
                     </Button>
                   </div>
