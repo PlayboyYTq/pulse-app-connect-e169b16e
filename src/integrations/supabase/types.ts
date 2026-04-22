@@ -480,6 +480,10 @@ export type Database = {
     }
     Functions: {
       are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
+      create_group_with_members: {
+        Args: { _member_ids: string[]; _name: string }
+        Returns: string
+      }
       group_role: { Args: { _group: string; _user: string }; Returns: string }
       is_blocked: { Args: { _a: string; _b: string }; Returns: boolean }
       is_group_admin_or_owner: {

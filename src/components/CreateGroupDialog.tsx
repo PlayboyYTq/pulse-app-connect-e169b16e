@@ -55,27 +55,18 @@ export function CreateGroupDialog({ onCreated }: { onCreated: (groupId: string) 
     if (trimmed.length > 60) { setNameError("Name must be 60 characters or less"); return; }
     if (selected.size === 0) { toast.error("Add at least one member"); return; }
     setBusy(true);
-    const { data: g, error } = await supabase
-      .from("groups")
-      .insert({ name: trimmed, created_by: user.id })
-      .select("id")
-      .single();
-    if (error || !g) {
-      setBusy(false);
-      toast.error(error?.message ?? "Could not create group");
-      return;
-    }
-    // Trigger auto-adds creator as owner. Add the rest as members.
-    const rows = Array.from(selected).map((uid) => ({ group_id: g.id, user_id: uid, role: "member" as const }));
-    const { error: memErr } = await supabase.from("group_members").insert(rows);
+    const { data: groupId, error } = await supabase.rpc("create_group_with_members", {
+      _name: trimmed,
+      _member_ids: Array.from(selected),
+    });
     setBusy(false);
-    if (memErr) {
-      toast.error(memErr.message);
+    if (error || !groupId) {
+      toast.error(error?.message ?? "Could not create group");
       return;
     }
     toast.success("Group created");
     setOpen(false);
-    onCreated(g.id);
+    onCreated(groupId as string);
   };
 
   return (

@@ -22,6 +22,8 @@ import { ChatListSkeleton } from "@/components/ChatListSkeleton";
 import { StatusTab } from "@/components/StatusTab";
 import { CallsTab } from "@/components/CallsTab";
 
+const MISSED_SEEN_KEY = "pulse:missed-calls-seen:v1";
+
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
 });
@@ -87,6 +89,7 @@ function ChatsLayout() {
   const [newOpen, setNewOpen] = useState(false);
   const [pendingRequests, setPendingRequests] = useState(0);
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [missedCount, setMissedCount] = useState(0);
   const [listChannelVersion, setListChannelVersion] = useState(0);
   const activeConvRef = useRef<string | undefined>(undefined);
   activeConvRef.current = params.conversationId;
@@ -208,10 +211,62 @@ function ChatsLayout() {
     setPendingRequests(count ?? 0);
   };
 
+  const loadMissedCount = async () => {
+    if (!user || typeof window === "undefined") return;
+    // Find conversations the user is in
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id")
+      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+    const ids = (convs ?? []).map((c) => c.id);
+    if (!ids.length) { setMissedCount(0); return; }
+    // Missed calls = system messages from the OTHER party that say Missed/No answer.
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id,sender_id,content,created_at")
+      .in("conversation_id", ids)
+      .neq("sender_id", user.id)
+      .or("content.ilike.📞%,content.ilike.📹%")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const missed = (msgs ?? []).filter((m) =>
+      /missed|no answer/i.test(m.content)
+    );
+    let seen: string[] = [];
+    try { seen = JSON.parse(localStorage.getItem(`${MISSED_SEEN_KEY}:${user.id}`) ?? "[]"); } catch { seen = []; }
+    const seenSet = new Set(seen);
+    const unseen = missed.filter((m) => !seenSet.has(m.id));
+    setMissedCount(unseen.length);
+  };
+
+  const markMissedSeen = async () => {
+    if (!user || typeof window === "undefined") return;
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id")
+      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+    const ids = (convs ?? []).map((c) => c.id);
+    if (!ids.length) { setMissedCount(0); return; }
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id,content")
+      .in("conversation_id", ids)
+      .neq("sender_id", user.id)
+      .or("content.ilike.📞%,content.ilike.📹%")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    const allMissedIds = (msgs ?? [])
+      .filter((m) => /missed|no answer/i.test(m.content))
+      .map((m) => m.id);
+    try { localStorage.setItem(`${MISSED_SEEN_KEY}:${user.id}`, JSON.stringify(allMissedIds)); } catch { /* ignore */ }
+    setMissedCount(0);
+  };
+
   useEffect(() => {
     loadChats();
     loadUnread();
     loadPendingCount();
+    loadMissedCount();
     if (!user) return;
     let disposed = false;
     const scheduleReconnect = () => {
@@ -307,6 +362,7 @@ function ChatsLayout() {
       )
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, () => {
         loadUnread();
+        loadMissedCount();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => {
@@ -416,13 +472,6 @@ function ChatsLayout() {
                 </span>
               )}
             </button>
-            <Link
-              to="/askify"
-              aria-label="Askify AI"
-              className="relative size-9 rounded-full grid place-items-center text-white bg-gradient-to-br from-violet-500 via-fuchsia-500 to-blue-500 shadow shadow-violet-500/30 hover:scale-105 active:scale-95 transition-transform"
-            >
-              <Sparkles className="size-4.5" />
-            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full">
@@ -472,7 +521,10 @@ function ChatsLayout() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setTopTab(t)}
+                    onClick={() => {
+                      setTopTab(t);
+                      if (t === "calls") void markMissedSeen();
+                    }}
                     className={cn(
                       "flex-1 h-9 rounded-xl text-sm font-medium capitalize transition-colors",
                       topTab === t
@@ -480,7 +532,12 @@ function ChatsLayout() {
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {t}
+                    <span className="relative inline-flex items-center justify-center">
+                      {t}
+                      {t === "calls" && missedCount > 0 && topTab !== "calls" && (
+                        <span className="ml-1.5 inline-block size-2 rounded-full bg-online" aria-label={`${missedCount} missed calls`} />
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>
