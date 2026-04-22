@@ -161,6 +161,11 @@ export function CallsTab() {
     const ch = supabase
       .channel(`calls-tab:${user.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => load())
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (payload) => {
+        const old = payload.old as { id?: string };
+        if (!old?.id) return;
+        setEntries((prev) => prev.filter((e) => e.id !== old.id));
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
