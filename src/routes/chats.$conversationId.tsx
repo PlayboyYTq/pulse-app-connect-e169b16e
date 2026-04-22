@@ -126,6 +126,10 @@ function ChatView() {
   // Load conversation, other user, messages, reactions, hidden
   useEffect(() => {
     if (!user) return;
+    // Hydrate from cache instantly when switching conversations.
+    const cached = loadConvCache(conversationId);
+    if (cached.other) setOther(cached.other);
+    if (cached.messages?.length) setMessages(cached.messages);
     let cancelled = false;
     (async () => {
       const { data: conv } = await supabase.from("conversations").select("user_a,user_b").eq("id", conversationId).maybeSingle();
@@ -139,6 +143,7 @@ function ChatView() {
       setOther(prof as Profile);
       const list = (msgs ?? []) as Message[];
       setMessages(list);
+      saveConvCache(conversationId, { other: (prof as Profile) ?? null, messages: list });
 
       const ids = list.map((m) => m.id);
       if (ids.length) {
