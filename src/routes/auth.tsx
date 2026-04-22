@@ -235,7 +235,7 @@ function AuthPage() {
                   <div className="space-y-2">
                     <p>{verificationText}</p>
                     <Button type="button" variant="ghost" onClick={resendVerification} disabled={resending} className="h-auto px-0 text-primary hover:bg-transparent hover:text-primary/80">
-                      {resending ? "Sending…" : "Resend verification email"}
+                      {resending ? "Sending…" : cooldown > 0 ? `Resend in ${cooldown}s` : "Resend verification email"}
                     </Button>
                   </div>
                 </div>
