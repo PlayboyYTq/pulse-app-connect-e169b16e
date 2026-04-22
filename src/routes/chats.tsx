@@ -22,6 +22,8 @@ import { ChatListSkeleton } from "@/components/ChatListSkeleton";
 import { StatusTab } from "@/components/StatusTab";
 import { CallsTab } from "@/components/CallsTab";
 
+const MISSED_SEEN_KEY = "pulse:missed-calls-seen:v1";
+
 export const Route = createFileRoute("/chats")({
   component: ChatsLayout,
 });
