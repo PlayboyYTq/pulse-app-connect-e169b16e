@@ -601,10 +601,45 @@ function ChatsLayout() {
             {topTab === "calls" && (
               <CallsTab />
             )}
-          </>
-        ) : (
-          <FriendsPanel />
-        )}
+        </div>
+
+        {/* Bottom tab bar (WhatsApp style) */}
+        <nav className="border-t border-border/70 bg-card/80 backdrop-blur-xl px-2 py-1.5 flex items-center justify-around">
+          {([
+            { key: "chats", label: "Chats", Icon: MessageSquare, badge: 0 },
+            { key: "status", label: "Status", Icon: CircleDot, badge: 0 },
+            { key: "calls", label: "Calls", Icon: PhoneCall, badge: missedCount },
+          ] as const).map(({ key, label, Icon, badge }) => {
+            const active = topTab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setTopTab(key);
+                  if (key === "calls") void markMissedSeen();
+                }}
+                className={cn(
+                  "relative flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-[11px] font-medium transition-all duration-200",
+                  active ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <span className={cn(
+                  "grid place-items-center size-9 rounded-2xl transition-all duration-200",
+                  active ? "bg-primary/15 scale-105" : "bg-transparent",
+                )}>
+                  <Icon className="size-5" />
+                  {badge > 0 && (
+                    <span className="absolute top-0.5 right-[26%] min-w-[16px] h-4 px-1 rounded-full bg-online text-[10px] font-bold text-white grid place-items-center ring-2 ring-card">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </span>
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </aside>
 
       <main className={cn("flex-1 flex flex-col overflow-hidden", showSidebarOnMobile ? "hidden md:flex" : "flex")}>
@@ -622,7 +657,26 @@ function ChatsLayout() {
           </div>
         )}
       </main>
-      {!params.conversationId && <AskifyFab />}
+      {!params.conversationId && (
+        <ChatFabStack
+          open={fabOpen}
+          onToggle={() => setFabOpen((v) => !v)}
+          onAskify={() => { setFabOpen(false); navigate({ to: "/askify" }); }}
+          onFriends={() => { setFabOpen(false); setFriendsOpen(true); }}
+          onNewChat={() => { setFabOpen(false); setNewOpen(true); }}
+          pendingRequests={pendingRequests}
+        />
+      )}
+      <Sheet open={friendsOpen} onOpenChange={setFriendsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col">
+          <SheetHeader className="px-4 py-3 border-b">
+            <SheetTitle className="flex items-center gap-2"><Users className="size-5" /> Friends</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            <FriendsPanel />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
