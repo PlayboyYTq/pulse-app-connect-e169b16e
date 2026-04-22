@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, ImagePlus, Type, X, Eye } from "lucide-react";
+import { Plus, ImagePlus, Type, X, Eye, Send, Pause } from "lucide-react";
 import { initials } from "@/lib/format";
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { toast } from "sonner";
@@ -220,10 +220,19 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
   const [idx, setIdx] = useState(startIndex);
   const [progress, setProgress] = useState(0);
   const [viewerCount, setViewerCount] = useState<number | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [reply, setReply] = useState("");
+  const [sending, setSending] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const current = group.statuses[idx];
   const isMine = current?.user_id === user?.id;
 
-  // Record view + progress timer
+  // Reset when story changes
+  useEffect(() => {
+    setImgLoaded(current?.kind !== "image");
+  }, [current?.id]);
+
+  // Record view
   useEffect(() => {
     if (!current || !user) return;
     if (!isMine) {
@@ -231,20 +240,36 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
     } else {
       void supabase.from("status_views").select("*", { count: "exact", head: true }).eq("status_id", current.id).then(({ count }) => setViewerCount(count ?? 0));
     }
+  }, [current?.id, isMine, user?.id]);
+
+  // Smooth progress timer using rAF — pauses on hold/typing and waits for image load
+  useEffect(() => {
+    if (!current) return;
     setProgress(0);
-    const start = Date.now();
     const dur = 5000;
-    const id = window.setInterval(() => {
-      const p = Math.min(100, ((Date.now() - start) / dur) * 100);
+    let raf = 0;
+    let start = performance.now();
+    let lastTick = start;
+    const tick = (now: number) => {
+      if (paused || !imgLoaded) {
+        start += now - lastTick; // freeze elapsed
+        lastTick = now;
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      lastTick = now;
+      const p = Math.min(100, ((now - start) / dur) * 100);
       setProgress(p);
       if (p >= 100) {
-        window.clearInterval(id);
         if (idx < group.statuses.length - 1) setIdx(idx + 1);
         else onClose();
+        return;
       }
-    }, 50);
-    return () => window.clearInterval(id);
-  }, [current?.id, idx]);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [current?.id, idx, paused, imgLoaded, group.statuses.length, onClose]);
 
   const remove = async () => {
     if (!current) return;
@@ -255,14 +280,49 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
     onClose();
   };
 
+  const sendReply = async () => {
+    if (!user || !current || !reply.trim()) return;
+    setSending(true);
+    try {
+      const [a, b] = [user.id, current.user_id].sort();
+      let { data: existing } = await supabase
+        .from("conversations").select("id").eq("user_a", a).eq("user_b", b).maybeSingle();
+      let convId = existing?.id;
+      if (!convId) {
+        const { data: created, error: cErr } = await supabase
+          .from("conversations").insert({ user_a: a, user_b: b }).select("id").single();
+        if (cErr || !created) throw cErr ?? new Error("Could not start chat");
+        convId = created.id;
+      }
+      const preview = current.kind === "image" ? "📷 Photo status" : `"${(current.content ?? "").slice(0, 40)}"`;
+      const body = `↪️ Replied to your status ${preview}\n${reply.trim()}`;
+      const { error: mErr } = await supabase.from("messages").insert({
+        conversation_id: convId, sender_id: user.id, content: body,
+      });
+      if (mErr) throw mErr;
+      toast.success("Reply sent");
+      setReply("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send reply");
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (!current) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/95 grid place-items-center">
+    <div className="fixed inset-0 z-50 bg-black/95 grid place-items-center animate-fade-in">
       <div className="absolute top-0 inset-x-0 p-3 flex gap-1">
         {group.statuses.map((_, i) => (
           <div key={i} className="flex-1 h-0.5 rounded-full bg-white/30 overflow-hidden">
-            <div className="h-full bg-white" style={{ width: `${i < idx ? 100 : i === idx ? progress : 0}%` }} />
+            <div
+              className="h-full bg-white"
+              style={{
+                width: `${i < idx ? 100 : i === idx ? progress : 0}%`,
+                transition: i === idx ? "width 80ms linear" : undefined,
+              }}
+            />
           </div>
         ))}
       </div>
@@ -281,26 +341,77 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
         {isMine && <button onClick={remove} className="text-xs opacity-80 hover:opacity-100">Delete</button>}
         <button onClick={onClose} className="size-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-4" /></button>
       </div>
-      {/* Tap zones */}
+      {/* Tap zones — also pause-on-hold for smooth viewing */}
       <button
         className="absolute inset-y-0 left-0 w-1/3"
         onClick={() => (idx > 0 ? setIdx(idx - 1) : null)}
+        onPointerDown={() => setPaused(true)}
+        onPointerUp={() => setPaused(false)}
+        onPointerLeave={() => setPaused(false)}
         aria-label="Previous"
       />
       <button
         className="absolute inset-y-0 right-0 w-1/3"
         onClick={() => (idx < group.statuses.length - 1 ? setIdx(idx + 1) : onClose())}
+        onPointerDown={() => setPaused(true)}
+        onPointerUp={() => setPaused(false)}
+        onPointerLeave={() => setPaused(false)}
         aria-label="Next"
       />
       {current.kind === "image" && current.media_url ? (
-        <img src={current.media_url} alt="status" className="max-w-full max-h-full object-contain" />
+        <>
+          {!imgLoaded && (
+            <div className="absolute inset-0 grid place-items-center text-white/70 text-sm">Loading…</div>
+          )}
+          <img
+            key={current.id}
+            src={current.media_url}
+            alt="status"
+            onLoad={() => setImgLoaded(true)}
+            className={cn(
+              "max-w-full max-h-full object-contain transition-opacity duration-300",
+              imgLoaded ? "opacity-100" : "opacity-0"
+            )}
+          />
+        </>
       ) : (
         <div
-          className="max-w-md w-full mx-6 aspect-square rounded-2xl flex items-center justify-center text-white text-2xl font-semibold p-8 text-center"
+          key={current.id}
+          className="max-w-md w-full mx-6 aspect-square rounded-2xl flex items-center justify-center text-white text-2xl font-semibold p-8 text-center animate-fade-in"
           style={{ background: current.background ?? "#7c3aed" }}
         >
           {current.content}
         </div>
+      )}
+      {/* Reply bar — only for others' statuses */}
+      {!isMine && (
+        <div className="absolute bottom-0 inset-x-0 p-3 z-10 bg-gradient-to-t from-black/70 to-transparent">
+          <form
+            onSubmit={(e) => { e.preventDefault(); void sendReply(); }}
+            className="mx-auto max-w-md flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md ring-1 ring-white/20 px-3 py-2"
+          >
+            <input
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              onFocus={() => setPaused(true)}
+              onBlur={() => setPaused(false)}
+              placeholder={`Reply to ${group.user.name.split(" ")[0]}…`}
+              maxLength={500}
+              className="flex-1 bg-transparent outline-none text-sm text-white placeholder:text-white/60"
+            />
+            <button
+              type="submit"
+              disabled={sending || !reply.trim()}
+              className="size-8 grid place-items-center rounded-full bg-primary text-primary-foreground disabled:opacity-50"
+              aria-label="Send reply"
+            >
+              <Send className="size-4" />
+            </button>
+          </form>
+        </div>
+      )}
+      {paused && !isMine && (
+        <span className="sr-only"><Pause className="size-3" /> paused</span>
       )}
     </div>
   );
