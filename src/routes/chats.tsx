@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
 import { CreateGroupDialog } from "@/components/CreateGroupDialog";
-import { AskifyFab } from "@/components/AskifyFab";
 import { playMessageSound } from "@/lib/sound";
 import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
 import { isDesktopDevice } from "@/lib/device";
@@ -779,5 +778,87 @@ export function MobileBack() {
     <Button size="icon" variant="ghost" className="md:hidden -ml-2" onClick={() => navigate({ to: "/chats" })}>
       <ArrowLeft className="size-5" />
     </Button>
+  );
+}
+
+function ChatFabStack({
+  open,
+  onToggle,
+  onAskify,
+  onFriends,
+  onNewChat,
+  pendingRequests,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  onAskify: () => void;
+  onFriends: () => void;
+  onNewChat: () => void;
+  pendingRequests: number;
+}) {
+  return (
+    <div className="fixed bottom-20 right-5 z-40 flex flex-col items-end gap-3">
+      {/* Mini actions */}
+      <div
+        className={cn(
+          "flex flex-col items-end gap-3 transition-all duration-200 origin-bottom-right",
+          open ? "opacity-100 translate-y-0 scale-100" : "pointer-events-none opacity-0 translate-y-2 scale-95",
+        )}
+      >
+        <button
+          type="button"
+          onClick={onAskify}
+          aria-label="Open Askify AI"
+          className="group flex items-center gap-2"
+        >
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-card shadow-md border border-border/60">Askify AI</span>
+          <span className="grid size-12 place-items-center rounded-full bg-gradient-to-br from-violet-500 via-fuchsia-500 to-blue-500 text-white shadow-lg shadow-violet-500/40 transition-transform group-hover:scale-110">
+            <Sparkles className="size-5" />
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onFriends}
+          aria-label="Open Friends"
+          className="group relative flex items-center gap-2"
+        >
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-card shadow-md border border-border/60">Friends</span>
+          <span className="relative grid size-12 place-items-center rounded-full bg-card text-foreground border border-border shadow-lg transition-transform group-hover:scale-110">
+            <Users className="size-5" />
+            {pendingRequests > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold grid place-items-center ring-2 ring-card">
+                {pendingRequests > 9 ? "9+" : pendingRequests}
+              </span>
+            )}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onNewChat}
+          aria-label="Start new chat"
+          className="group flex items-center gap-2"
+        >
+          <span className="hidden sm:inline-block text-xs font-medium px-2.5 py-1 rounded-full bg-card shadow-md border border-border/60">New chat</span>
+          <span className="grid size-12 place-items-center rounded-full bg-card text-foreground border border-border shadow-lg transition-transform group-hover:scale-110">
+            <MessageSquare className="size-5" />
+          </span>
+        </button>
+      </div>
+
+      {/* Main FAB */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label={open ? "Close menu" : "Open menu"}
+        aria-expanded={open}
+        className={cn(
+          "grid size-14 place-items-center rounded-full text-primary-foreground shadow-xl transition-all duration-200",
+          "bg-gradient-to-br from-primary via-primary to-primary/80 shadow-primary/40",
+          open ? "rotate-45 scale-95" : "hover:scale-110 active:scale-95",
+        )}
+      >
+        {open ? <X className="size-6" /> : <Plus className="size-6" />}
+      </button>
+    </div>
   );
 }
