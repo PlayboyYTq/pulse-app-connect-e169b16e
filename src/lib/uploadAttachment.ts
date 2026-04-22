@@ -32,39 +32,26 @@ export async function uploadAttachment(
   const ext = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
   const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-  // Get a signed upload URL so we can stream via XHR with progress events.
-  const { data: signed, error: signErr } = await supabase.storage
-    .from("chat-attachments")
-    .createSignedUploadUrl(path);
-  if (signErr || !signed) {
-    // Fallback to standard upload (no progress) if signed URL fails
-    onProgress?.(10);
+  // Simulated progress while the SDK uploads. The Supabase JS client doesn't
+  // expose real upload progress, but a smooth fake bar is much better UX than
+  // a stuck spinner — and avoids the brittle signed-URL XHR path which fails
+  // when the signed URL is returned as a relative path.
+  let pct = 0;
+  onProgress?.(5);
+  const ticker = setInterval(() => {
+    pct = Math.min(90, pct + Math.max(2, Math.round((90 - pct) * 0.15)));
+    onProgress?.(pct);
+  }, 250);
+  try {
     const { error } = await supabase.storage.from("chat-attachments").upload(path, file, {
       contentType: file.type || "application/octet-stream",
       upsert: false,
+      cacheControl: "3600",
     });
     if (error) throw error;
     onProgress?.(100);
-  } else {
-    await new Promise<void>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("PUT", signed.signedUrl, true);
-      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-      xhr.setRequestHeader("x-upsert", "false");
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100));
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          onProgress?.(100);
-          resolve();
-        } else {
-          reject(new Error(`Upload failed (${xhr.status})`));
-        }
-      };
-      xhr.onerror = () => reject(new Error("Network error during upload"));
-      xhr.send(file);
-    });
+  } finally {
+    clearInterval(ticker);
   }
 
   const { data } = supabase.storage.from("chat-attachments").getPublicUrl(path);
