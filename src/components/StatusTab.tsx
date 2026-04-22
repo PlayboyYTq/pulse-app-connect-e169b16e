@@ -337,7 +337,12 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
         if (cErr || !created) throw cErr ?? new Error("Could not start chat");
         convId = created.id;
       }
-      const preview = current.kind === "image" ? "📷 Photo status" : `"${(current.content ?? "").slice(0, 40)}"`;
+      const preview =
+        current.kind === "image"
+          ? "📷 Photo status"
+          : current.kind === "video"
+            ? "🎬 Video status"
+            : `"${(current.content ?? "").slice(0, 40)}"`;
       const body = `↪️ Replied to your status ${preview}\n${reply.trim()}`;
       const { error: mErr } = await supabase.from("messages").insert({
         conversation_id: convId, sender_id: user.id, content: body,
