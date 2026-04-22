@@ -352,13 +352,31 @@ function ChatView() {
   };
 
   const deleteForEveryone = async (messageId: string) => {
-    const { error } = await supabase
-      .from("messages")
-      .update({ deleted_for_everyone: true, content: "" })
-      .eq("id", messageId);
-    if (error) toast.error(error.message);
-    else setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, deleted_for_everyone: true, content: "" } : m)));
     setActiveMessageId(null);
+    const ok = window.confirm("Delete this message for everyone? This cannot be undone.");
+    if (!ok) return;
+    // Optimistic UI
+    const snapshot = messages;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, deleted_for_everyone: true, content: "", media_url: null, media_type: null } : m)),
+    );
+    const { data, error } = await supabase
+      .from("messages")
+      .update({ deleted_for_everyone: true, content: "", media_url: null, media_type: null })
+      .eq("id", messageId)
+      .eq("sender_id", user?.id ?? "")
+      .select("id");
+    if (error) {
+      setMessages(snapshot);
+      toast.error(error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setMessages(snapshot);
+      toast.error("You can only delete your own messages.");
+      return;
+    }
+    toast.success("Message deleted");
   };
 
   const copyMessage = async (text: string) => {
