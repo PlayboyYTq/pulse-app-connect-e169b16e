@@ -165,7 +165,9 @@ function ComposeStatusDialog({ open, onOpenChange, onPosted }: { open: boolean; 
   const [text, setText] = useState("");
   const [bg, setBg] = useState("#7c3aed");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   const postText = async () => {
     if (!user || !text.trim()) return;
@@ -178,20 +180,24 @@ function ComposeStatusDialog({ open, onOpenChange, onPosted }: { open: boolean; 
     onPosted();
   };
 
-  const postImage = async (file: File) => {
+  const postMedia = async (file: File, kind: "image" | "video") => {
     if (!user) return;
     setBusy(true);
+    setProgress(0);
     try {
-      const { url } = await uploadAttachment(file, user.id);
-      const { error } = await supabase.from("statuses").insert({ user_id: user.id, kind: "image", media_url: url });
+      const { url } = await uploadAttachment(file, user.id, (p) => setProgress(p));
+      const { error } = await supabase.from("statuses").insert({ user_id: user.id, kind, media_url: url });
       if (error) throw error;
+      toast.success(kind === "video" ? "Video status posted" : "Photo status posted");
       onOpenChange(false);
       onPosted();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to post status");
     } finally {
       setBusy(false);
+      setProgress(0);
       if (fileRef.current) fileRef.current.value = "";
+      if (videoRef.current) videoRef.current.value = "";
     }
   };
 
@@ -211,14 +217,29 @@ function ComposeStatusDialog({ open, onOpenChange, onPosted }: { open: boolean; 
             <button key={c} type="button" onClick={() => setBg(c)} className="size-7 rounded-full ring-2 ring-offset-2 ring-offset-background" style={{ background: c, boxShadow: bg === c ? "0 0 0 2px var(--ring)" : undefined }} />
           ))}
         </div>
-        <div className="flex gap-2">
+        {busy && (
+          <div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+              <span>Uploading…</span>
+              <span className="font-medium tabular-nums">{progress}%</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-150" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={postText} disabled={busy || !text.trim()} className="flex-1">
             <Type className="size-4 mr-2" /> Post text
           </Button>
-          <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy} className="flex-1">
-            <ImagePlus className="size-4 mr-2" /> Image
+          <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy} className="flex-1 min-w-[100px]">
+            <ImagePlus className="size-4 mr-2" /> Photo
           </Button>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void postImage(f); }} />
+          <Button variant="secondary" onClick={() => videoRef.current?.click()} disabled={busy} className="flex-1 min-w-[100px]">
+            <VideoIcon className="size-4 mr-2" /> Video
+          </Button>
+          <input ref={fileRef} type="file" accept="image/*,image/gif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void postMedia(f, "image"); }} />
+          <input ref={videoRef} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void postMedia(f, "video"); }} />
         </div>
       </DialogContent>
     </Dialog>
