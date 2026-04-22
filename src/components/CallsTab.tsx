@@ -168,6 +168,19 @@ export function CallsTab() {
 
   return (
     <div className="flex-1 overflow-y-auto">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-border/60 sticky top-0 bg-sidebar/80 backdrop-blur z-10">
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Recent calls</span>
+        {entries.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-destructive hover:text-destructive"
+            onClick={() => setConfirmClear(true)}
+          >
+            <Trash2 className="size-3.5 mr-1" /> Clear all
+          </Button>
+        )}
+      </div>
       {loading && <div className="px-6 py-8 text-sm text-muted-foreground text-center">Loading…</div>}
       {!loading && entries.length === 0 && (
         <div className="px-6 py-12 text-center text-sm text-muted-foreground">
@@ -177,6 +190,7 @@ export function CallsTab() {
       {entries.map((e) => {
         const isMissed = e.outcome === "missed" && e.direction === "incoming";
         const Icon = isMissed ? PhoneMissed : e.direction === "outgoing" ? PhoneOutgoing : PhoneIncoming;
+        const canDelete = e.direction === "outgoing"; // Only sender can delete via RLS
         return (
           <div key={e.id} className="mx-2 px-3 py-3 rounded-2xl flex items-center gap-3 hover:bg-accent/60">
             <Avatar className="size-12">
@@ -200,9 +214,44 @@ export function CallsTab() {
             >
               {e.mode === "video" ? <Video className="size-4" /> : <Phone className="size-4" />}
             </button>
+            {canDelete && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="size-8 rounded-full grid place-items-center text-muted-foreground hover:bg-muted"
+                    aria-label="Call options"
+                  >
+                    <MoreVertical className="size-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => deleteOne(e)} className="text-destructive focus:text-destructive">
+                    <Trash2 className="size-4 mr-2" /> Delete log
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         );
       })}
+      <AlertDialog open={confirmClear} onOpenChange={setConfirmClear}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Clear all your call logs?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes call log entries you started. Logs from incoming calls will remain.
+              This won't delete any chat messages.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={clearAll} disabled={clearing} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {clearing ? "Clearing…" : "Clear all"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
