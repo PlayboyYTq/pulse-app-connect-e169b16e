@@ -24,6 +24,27 @@ export const Route = createFileRoute("/chats/$conversationId")({
   component: ChatView,
 });
 
+const CONV_CACHE_PREFIX = "pulse:conv-cache:v1";
+const MAX_CACHED_MSGS = 80;
+function loadConvCache(conversationId: string): { other?: Profile; messages?: Message[] } {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = sessionStorage.getItem(`${CONV_CACHE_PREFIX}:${conversationId}`);
+    if (!raw) return {};
+    return JSON.parse(raw);
+  } catch { return {}; }
+}
+function saveConvCache(conversationId: string, payload: { other: Profile | null; messages: Message[] }) {
+  if (typeof window === "undefined") return;
+  try {
+    const trimmed = payload.messages.slice(-MAX_CACHED_MSGS);
+    sessionStorage.setItem(
+      `${CONV_CACHE_PREFIX}:${conversationId}`,
+      JSON.stringify({ other: payload.other, messages: trimmed }),
+    );
+  } catch { /* ignore quota */ }
+}
+
 type Message = {
   id: string;
   conversation_id: string;
@@ -62,8 +83,8 @@ function ChatView() {
   const { user } = useAuth();
   const { startCall, phase: callPhase } = useCall();
   const { isOnline } = usePresence();
-  const [other, setOther] = useState<Profile | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [other, setOther] = useState<Profile | null>(() => loadConvCache(conversationId).other ?? null);
+  const [messages, setMessages] = useState<Message[]>(() => loadConvCache(conversationId).messages ?? []);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
@@ -105,6 +126,10 @@ function ChatView() {
   // Load conversation, other user, messages, reactions, hidden
   useEffect(() => {
     if (!user) return;
+    // Hydrate from cache instantly when switching conversations.
+    const cached = loadConvCache(conversationId);
+    if (cached.other) setOther(cached.other);
+    if (cached.messages?.length) setMessages(cached.messages);
     let cancelled = false;
     (async () => {
       const { data: conv } = await supabase.from("conversations").select("user_a,user_b").eq("id", conversationId).maybeSingle();
@@ -118,6 +143,7 @@ function ChatView() {
       setOther(prof as Profile);
       const list = (msgs ?? []) as Message[];
       setMessages(list);
+      saveConvCache(conversationId, { other: (prof as Profile) ?? null, messages: list });
 
       const ids = list.map((m) => m.id);
       if (ids.length) {
@@ -227,6 +253,12 @@ function ChatView() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages.length, otherTyping]);
+
+  // Persist a small message tail so the next open is instant.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    saveConvCache(conversationId, { other, messages });
+  }, [conversationId, other, messages]);
 
   const broadcastTyping = (event: "typing" | "stop_typing") => {
     const ch = channelRef.current;
@@ -514,6 +546,30 @@ function ChatView() {
             return <div className="text-center text-sm text-muted-foreground py-10">No messages match “{searchQuery}”.</div>;
           }
           return renderList.map((m, i) => {
+          // Call log messages are system-style (centered pill), not regular bubbles.
+          const isCallLog = !m.deleted_for_everyone && /^(📞|📹)/.test(m.content);
+          if (isCallLog) {
+            const prevCall = renderList[i - 1];
+            const showSep = !q && (!prevCall || !isSameDay(prevCall.created_at, m.created_at));
+            return (
+              <div key={m.id}>
+                {showSep && (
+                  <div className="flex justify-center my-3">
+                    <span className="text-[11px] font-medium px-3 py-1 rounded-full bg-muted/70 text-muted-foreground shadow-sm">
+                      {dateSeparatorLabel(m.created_at)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-center my-2 animate-fade-in">
+                  <div className="inline-flex items-center gap-1.5 max-w-[80%] px-3 py-1.5 rounded-full bg-muted/60 text-muted-foreground text-xs italic shadow-sm">
+                    <span className="not-italic">{m.content.startsWith("📹") ? "📹" : "📞"}</span>
+                    <span className="truncate">{m.content.replace(/^📞\s*|^📹\s*/, "")}</span>
+                    <span className="opacity-60">· {formatTime(m.created_at)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }
           const mine = m.sender_id === user?.id;
           const prev = renderList[i - 1];
           const groupedWithPrev = !q && prev && prev.sender_id === m.sender_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000;

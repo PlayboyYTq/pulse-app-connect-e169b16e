@@ -5,7 +5,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, ImagePlus, Type, X, Eye, Send, Pause } from "lucide-react";
+import { Plus, ImagePlus, Type, X, Eye, Send, Pause, Video as VideoIcon } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { initials } from "@/lib/format";
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { toast } from "sonner";
@@ -14,7 +24,7 @@ import { cn } from "@/lib/utils";
 type StatusRow = {
   id: string;
   user_id: string;
-  kind: "image" | "text";
+  kind: "image" | "video" | "text";
   media_url: string | null;
   content: string | null;
   background: string | null;
@@ -155,7 +165,9 @@ function ComposeStatusDialog({ open, onOpenChange, onPosted }: { open: boolean; 
   const [text, setText] = useState("");
   const [bg, setBg] = useState("#7c3aed");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
 
   const postText = async () => {
     if (!user || !text.trim()) return;
@@ -168,20 +180,24 @@ function ComposeStatusDialog({ open, onOpenChange, onPosted }: { open: boolean; 
     onPosted();
   };
 
-  const postImage = async (file: File) => {
+  const postMedia = async (file: File, kind: "image" | "video") => {
     if (!user) return;
     setBusy(true);
+    setProgress(0);
     try {
-      const { url } = await uploadAttachment(file, user.id);
-      const { error } = await supabase.from("statuses").insert({ user_id: user.id, kind: "image", media_url: url });
+      const { url } = await uploadAttachment(file, user.id, (p) => setProgress(p));
+      const { error } = await supabase.from("statuses").insert({ user_id: user.id, kind, media_url: url });
       if (error) throw error;
+      toast.success(kind === "video" ? "Video status posted" : "Photo status posted");
       onOpenChange(false);
       onPosted();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to post status");
     } finally {
       setBusy(false);
+      setProgress(0);
       if (fileRef.current) fileRef.current.value = "";
+      if (videoRef.current) videoRef.current.value = "";
     }
   };
 
@@ -201,14 +217,29 @@ function ComposeStatusDialog({ open, onOpenChange, onPosted }: { open: boolean; 
             <button key={c} type="button" onClick={() => setBg(c)} className="size-7 rounded-full ring-2 ring-offset-2 ring-offset-background" style={{ background: c, boxShadow: bg === c ? "0 0 0 2px var(--ring)" : undefined }} />
           ))}
         </div>
-        <div className="flex gap-2">
+        {busy && (
+          <div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+              <span>Uploading…</span>
+              <span className="font-medium tabular-nums">{progress}%</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div className="h-full bg-primary transition-all duration-150" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={postText} disabled={busy || !text.trim()} className="flex-1">
             <Type className="size-4 mr-2" /> Post text
           </Button>
-          <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy} className="flex-1">
-            <ImagePlus className="size-4 mr-2" /> Image
+          <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={busy} className="flex-1 min-w-[100px]">
+            <ImagePlus className="size-4 mr-2" /> Photo
           </Button>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void postImage(f); }} />
+          <Button variant="secondary" onClick={() => videoRef.current?.click()} disabled={busy} className="flex-1 min-w-[100px]">
+            <VideoIcon className="size-4 mr-2" /> Video
+          </Button>
+          <input ref={fileRef} type="file" accept="image/*,image/gif" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void postMedia(f, "image"); }} />
+          <input ref={videoRef} type="file" accept="video/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) void postMedia(f, "video"); }} />
         </div>
       </DialogContent>
     </Dialog>
@@ -224,6 +255,8 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const current = group.statuses[idx];
   const isMine = current?.user_id === user?.id;
 
@@ -272,10 +305,20 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
   }, [current?.id, idx, paused, imgLoaded, group.statuses.length, onClose]);
 
   const remove = async () => {
-    if (!current) return;
-    const { error } = await supabase.from("statuses").delete().eq("id", current.id);
+    if (!current || !user) return;
+    setDeleting(true);
+    const { data, error } = await supabase
+      .from("statuses")
+      .delete()
+      .eq("id", current.id)
+      .eq("user_id", user.id)
+      .select("id");
+    setDeleting(false);
+    setConfirmDelete(false);
     if (error) return toast.error(error.message);
+    if (!data || data.length === 0) return toast.error("You can only delete your own status.");
     toast.success("Status deleted");
+    // Close viewer immediately and let parent refetch.
     onChanged();
     onClose();
   };
@@ -294,7 +337,12 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
         if (cErr || !created) throw cErr ?? new Error("Could not start chat");
         convId = created.id;
       }
-      const preview = current.kind === "image" ? "📷 Photo status" : `"${(current.content ?? "").slice(0, 40)}"`;
+      const preview =
+        current.kind === "image"
+          ? "📷 Photo status"
+          : current.kind === "video"
+            ? "🎬 Video status"
+            : `"${(current.content ?? "").slice(0, 40)}"`;
       const body = `↪️ Replied to your status ${preview}\n${reply.trim()}`;
       const { error: mErr } = await supabase.from("messages").insert({
         conversation_id: convId, sender_id: user.id, content: body,
@@ -338,7 +386,14 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
         {isMine && viewerCount !== null && (
           <span className="inline-flex items-center gap-1 text-xs opacity-80"><Eye className="size-3.5" /> {viewerCount}</span>
         )}
-        {isMine && <button onClick={remove} className="text-xs opacity-80 hover:opacity-100">Delete</button>}
+        {isMine && (
+          <button
+            onClick={() => { setPaused(true); setConfirmDelete(true); }}
+            className="text-xs opacity-80 hover:opacity-100"
+          >
+            Delete
+          </button>
+        )}
         <button onClick={onClose} className="size-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-4" /></button>
       </div>
       {/* Tap zones — also pause-on-hold for smooth viewing */}
@@ -358,7 +413,17 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
         onPointerLeave={() => setPaused(false)}
         aria-label="Next"
       />
-      {current.kind === "image" && current.media_url ? (
+      {current.kind === "video" && current.media_url ? (
+        <video
+          key={current.id}
+          src={current.media_url}
+          autoPlay
+          playsInline
+          controls
+          onLoadedData={() => setImgLoaded(true)}
+          className="max-w-full max-h-full"
+        />
+      ) : current.kind === "image" && current.media_url ? (
         <>
           {!imgLoaded && (
             <div className="absolute inset-0 grid place-items-center text-white/70 text-sm">Loading…</div>
@@ -413,6 +478,22 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
       {paused && !isMine && (
         <span className="sr-only"><Pause className="size-3" /> paused</span>
       )}
+      <AlertDialog open={confirmDelete} onOpenChange={(o) => { setConfirmDelete(o); if (!o) setPaused(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this status?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This status will be permanently removed for everyone. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={remove} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
