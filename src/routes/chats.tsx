@@ -266,6 +266,7 @@ function ChatsLayout() {
     loadChats();
     loadUnread();
     loadPendingCount();
+    loadMissedCount();
     if (!user) return;
     let disposed = false;
     const scheduleReconnect = () => {
@@ -361,6 +362,7 @@ function ChatsLayout() {
       )
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, () => {
         loadUnread();
+        loadMissedCount();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => loadChats())
       .on("postgres_changes", { event: "*", schema: "public", table: "friend_requests" }, () => {
@@ -519,7 +521,10 @@ function ChatsLayout() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setTopTab(t)}
+                    onClick={() => {
+                      setTopTab(t);
+                      if (t === "calls") void markMissedSeen();
+                    }}
                     className={cn(
                       "flex-1 h-9 rounded-xl text-sm font-medium capitalize transition-colors",
                       topTab === t
@@ -527,7 +532,12 @@ function ChatsLayout() {
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    {t}
+                    <span className="relative inline-flex items-center justify-center">
+                      {t}
+                      {t === "calls" && missedCount > 0 && topTab !== "calls" && (
+                        <span className="ml-1.5 inline-block size-2 rounded-full bg-online" aria-label={`${missedCount} missed calls`} />
+                      )}
+                    </span>
                   </button>
                 ))}
               </div>
