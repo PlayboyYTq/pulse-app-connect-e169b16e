@@ -67,6 +67,8 @@ export function CallsTab() {
   const { startCall } = useCall();
   const [entries, setEntries] = useState<CallEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const load = async () => {
     if (!user) return;
@@ -111,6 +113,46 @@ export function CallsTab() {
     }
     setEntries(out);
     setLoading(false);
+  };
+
+  const deleteOne = async (entry: CallEntry) => {
+    // Optimistic
+    setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    const { error } = await supabase
+      .from("messages")
+      .delete()
+      .eq("id", entry.id)
+      .eq("sender_id", user?.id ?? "");
+    if (error) {
+      toast.error(error.message);
+      void load();
+      return;
+    }
+    toast.success("Call log deleted");
+  };
+
+  const clearAll = async () => {
+    if (!user) return;
+    setClearing(true);
+    // Only delete OUR OWN call log messages — RLS only allows sender to delete.
+    const myCallIds = entries.filter((e) => e.direction === "outgoing").map((e) => e.id);
+    if (myCallIds.length === 0) {
+      setClearing(false);
+      setConfirmClear(false);
+      toast.info("You can only clear call logs you started.");
+      return;
+    }
+    const snapshot = entries;
+    setEntries((prev) => prev.filter((e) => !myCallIds.includes(e.id)));
+    const { error } = await supabase.from("messages").delete().in("id", myCallIds);
+    setClearing(false);
+    setConfirmClear(false);
+    if (error) {
+      setEntries(snapshot);
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Cleared ${myCallIds.length} call log${myCallIds.length === 1 ? "" : "s"}`);
   };
 
   useEffect(() => {
