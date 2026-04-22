@@ -83,8 +83,8 @@ function ChatView() {
   const { user } = useAuth();
   const { startCall, phase: callPhase } = useCall();
   const { isOnline } = usePresence();
-  const [other, setOther] = useState<Profile | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [other, setOther] = useState<Profile | null>(() => loadConvCache(conversationId).other ?? null);
+  const [messages, setMessages] = useState<Message[]>(() => loadConvCache(conversationId).messages ?? []);
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState("");
