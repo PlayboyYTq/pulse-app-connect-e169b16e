@@ -211,6 +211,57 @@ function ChatsLayout() {
     setPendingRequests(count ?? 0);
   };
 
+  const loadMissedCount = async () => {
+    if (!user || typeof window === "undefined") return;
+    // Find conversations the user is in
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id")
+      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+    const ids = (convs ?? []).map((c) => c.id);
+    if (!ids.length) { setMissedCount(0); return; }
+    // Missed calls = system messages from the OTHER party that say Missed/No answer.
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id,sender_id,content,created_at")
+      .in("conversation_id", ids)
+      .neq("sender_id", user.id)
+      .or("content.ilike.📞%,content.ilike.📹%")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const missed = (msgs ?? []).filter((m) =>
+      /missed|no answer/i.test(m.content)
+    );
+    let seen: string[] = [];
+    try { seen = JSON.parse(localStorage.getItem(`${MISSED_SEEN_KEY}:${user.id}`) ?? "[]"); } catch { seen = []; }
+    const seenSet = new Set(seen);
+    const unseen = missed.filter((m) => !seenSet.has(m.id));
+    setMissedCount(unseen.length);
+  };
+
+  const markMissedSeen = async () => {
+    if (!user || typeof window === "undefined") return;
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id")
+      .or(`user_a.eq.${user.id},user_b.eq.${user.id}`);
+    const ids = (convs ?? []).map((c) => c.id);
+    if (!ids.length) { setMissedCount(0); return; }
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("id,content")
+      .in("conversation_id", ids)
+      .neq("sender_id", user.id)
+      .or("content.ilike.📞%,content.ilike.📹%")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    const allMissedIds = (msgs ?? [])
+      .filter((m) => /missed|no answer/i.test(m.content))
+      .map((m) => m.id);
+    try { localStorage.setItem(`${MISSED_SEEN_KEY}:${user.id}`, JSON.stringify(allMissedIds)); } catch { /* ignore */ }
+    setMissedCount(0);
+  };
+
   useEffect(() => {
     loadChats();
     loadUnread();
