@@ -5,7 +5,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Plus, ImagePlus, Type, X, Eye, Send, Pause } from "lucide-react";
+import { Plus, ImagePlus, Type, X, Eye, Send, Pause, Video as VideoIcon } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { initials } from "@/lib/format";
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { toast } from "sonner";
@@ -14,7 +24,7 @@ import { cn } from "@/lib/utils";
 type StatusRow = {
   id: string;
   user_id: string;
-  kind: "image" | "text";
+  kind: "image" | "video" | "text";
   media_url: string | null;
   content: string | null;
   background: string | null;
