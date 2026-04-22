@@ -459,22 +459,6 @@ function ChatsLayout() {
                 />
               </>
             )}
-            <button
-              type="button"
-              onClick={() => setTab((t) => (t === "friends" ? "chats" : "friends"))}
-              aria-label="Friends"
-              className={cn(
-                "relative size-9 rounded-full grid place-items-center transition-colors",
-                tab === "friends" ? "bg-accent text-accent-foreground" : "hover:bg-accent/60 text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Users className="size-5" />
-              {pendingRequests > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold grid place-items-center">
-                  {pendingRequests > 9 ? "9+" : pendingRequests}
-                </span>
-              )}
-            </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full">
