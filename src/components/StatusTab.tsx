@@ -255,6 +255,8 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const current = group.statuses[idx];
   const isMine = current?.user_id === user?.id;
 
@@ -303,10 +305,20 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
   }, [current?.id, idx, paused, imgLoaded, group.statuses.length, onClose]);
 
   const remove = async () => {
-    if (!current) return;
-    const { error } = await supabase.from("statuses").delete().eq("id", current.id);
+    if (!current || !user) return;
+    setDeleting(true);
+    const { data, error } = await supabase
+      .from("statuses")
+      .delete()
+      .eq("id", current.id)
+      .eq("user_id", user.id)
+      .select("id");
+    setDeleting(false);
+    setConfirmDelete(false);
     if (error) return toast.error(error.message);
+    if (!data || data.length === 0) return toast.error("You can only delete your own status.");
     toast.success("Status deleted");
+    // Close viewer immediately and let parent refetch.
     onChanged();
     onClose();
   };
