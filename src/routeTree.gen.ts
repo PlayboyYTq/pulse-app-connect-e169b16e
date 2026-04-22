@@ -19,6 +19,7 @@ import { Route as AskifyRouteImport } from './routes/askify'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as ChatsConversationIdRouteImport } from './routes/chats.$conversationId'
+import { Route as ApiSendVerificationRouteImport } from './routes/api/send-verification'
 import { Route as ApiDeleteAccountRouteImport } from './routes/api/delete-account'
 import { Route as ApiAskifyRouteImport } from './routes/api/askify'
 import { Route as ApiPushSendRouteImport } from './routes/api/push.send'
@@ -73,6 +74,11 @@ const ChatsConversationIdRoute = ChatsConversationIdRouteImport.update({
   path: '/$conversationId',
   getParentRoute: () => ChatsRoute,
 } as any)
+const ApiSendVerificationRoute = ApiSendVerificationRouteImport.update({
+  id: '/api/send-verification',
+  path: '/api/send-verification',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDeleteAccountRoute = ApiDeleteAccountRouteImport.update({
   id: '/api/delete-account',
   path: '/api/delete-account',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
+  '/api/send-verification': typeof ApiSendVerificationRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
+  '/api/send-verification': typeof ApiSendVerificationRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
+  '/api/send-verification': typeof ApiSendVerificationRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/askify'
     | '/api/delete-account'
+    | '/api/send-verification'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/askify'
     | '/api/delete-account'
+    | '/api/send-verification'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/askify'
     | '/api/delete-account'
+    | '/api/send-verification'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   ApiAskifyRoute: typeof ApiAskifyRoute
   ApiDeleteAccountRoute: typeof ApiDeleteAccountRoute
+  ApiSendVerificationRoute: typeof ApiSendVerificationRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
   ApiPushSendRoute: typeof ApiPushSendRoute
 }
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatsConversationIdRouteImport
       parentRoute: typeof ChatsRoute
     }
+    '/api/send-verification': {
+      id: '/api/send-verification'
+      path: '/api/send-verification'
+      fullPath: '/api/send-verification'
+      preLoaderRoute: typeof ApiSendVerificationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/delete-account': {
       id: '/api/delete-account'
       path: '/api/delete-account'
@@ -315,6 +335,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   ApiAskifyRoute: ApiAskifyRoute,
   ApiDeleteAccountRoute: ApiDeleteAccountRoute,
+  ApiSendVerificationRoute: ApiSendVerificationRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,
   ApiPushSendRoute: ApiPushSendRoute,
 }
