@@ -37,6 +37,13 @@ function AuthPage() {
   const [resending, setResending] = useState(false);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/chats" });
@@ -82,15 +89,18 @@ function AuthPage() {
 
   const resendVerification = async () => {
     if (!pendingVerificationEmail) return;
+    if (cooldown > 0) return;
     setResending(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: "signup",
-        email: pendingVerificationEmail,
-        options: { emailRedirectTo: `${window.location.origin}/auth` },
+      const res = await fetch("/api/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: pendingVerificationEmail }),
       });
-      if (error) throw error;
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Failed to send verification email");
       toast.success("Verification email sent");
+      setCooldown(30);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to resend verification email");
     } finally {
