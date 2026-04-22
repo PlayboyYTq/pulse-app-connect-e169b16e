@@ -381,7 +381,14 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
         {isMine && viewerCount !== null && (
           <span className="inline-flex items-center gap-1 text-xs opacity-80"><Eye className="size-3.5" /> {viewerCount}</span>
         )}
-        {isMine && <button onClick={remove} className="text-xs opacity-80 hover:opacity-100">Delete</button>}
+        {isMine && (
+          <button
+            onClick={() => { setPaused(true); setConfirmDelete(true); }}
+            className="text-xs opacity-80 hover:opacity-100"
+          >
+            Delete
+          </button>
+        )}
         <button onClick={onClose} className="size-8 grid place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="size-4" /></button>
       </div>
       {/* Tap zones — also pause-on-hold for smooth viewing */}
@@ -401,7 +408,17 @@ function StatusViewer({ group, startIndex, onClose, onChanged }: { group: Group;
         onPointerLeave={() => setPaused(false)}
         aria-label="Next"
       />
-      {current.kind === "image" && current.media_url ? (
+      {current.kind === "video" && current.media_url ? (
+        <video
+          key={current.id}
+          src={current.media_url}
+          autoPlay
+          playsInline
+          controls
+          onLoadedData={() => setImgLoaded(true)}
+          className="max-w-full max-h-full"
+        />
+      ) : current.kind === "image" && current.media_url ? (
         <>
           {!imgLoaded && (
             <div className="absolute inset-0 grid place-items-center text-white/70 text-sm">Loading…</div>
