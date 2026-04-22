@@ -84,6 +84,8 @@ function ChatsLayout() {
   const params = useParams({ strict: false }) as { conversationId?: string };
   const [tab, setTab] = useState<"chats" | "friends">("chats");
   const [topTab, setTopTab] = useState<"chats" | "status" | "calls">("chats");
+  const [fabOpen, setFabOpen] = useState(false);
+  const [friendsOpen, setFriendsOpen] = useState(false);
   const [chats, setChats] = useState<ChatItem[]>(() => loadChatsCache(undefined));
   const [chatsLoaded, setChatsLoaded] = useState(false);
   const [search, setSearch] = useState("");
