@@ -514,6 +514,30 @@ function ChatView() {
             return <div className="text-center text-sm text-muted-foreground py-10">No messages match “{searchQuery}”.</div>;
           }
           return renderList.map((m, i) => {
+          // Call log messages are system-style (centered pill), not regular bubbles.
+          const isCallLog = !m.deleted_for_everyone && /^(📞|📹)/.test(m.content);
+          if (isCallLog) {
+            const prevCall = renderList[i - 1];
+            const showSep = !q && (!prevCall || !isSameDay(prevCall.created_at, m.created_at));
+            return (
+              <div key={m.id}>
+                {showSep && (
+                  <div className="flex justify-center my-3">
+                    <span className="text-[11px] font-medium px-3 py-1 rounded-full bg-muted/70 text-muted-foreground shadow-sm">
+                      {dateSeparatorLabel(m.created_at)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-center my-2 animate-fade-in">
+                  <div className="inline-flex items-center gap-1.5 max-w-[80%] px-3 py-1.5 rounded-full bg-muted/60 text-muted-foreground text-xs italic shadow-sm">
+                    <span className="not-italic">{m.content.startsWith("📹") ? "📹" : "📞"}</span>
+                    <span className="truncate">{m.content.replace(/^📞\s*|^📹\s*/, "")}</span>
+                    <span className="opacity-60">· {formatTime(m.created_at)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          }
           const mine = m.sender_id === user?.id;
           const prev = renderList[i - 1];
           const groupedWithPrev = !q && prev && prev.sender_id === m.sender_id && new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 60_000;
