@@ -483,7 +483,7 @@ function ChatView() {
         </div>
       )}
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-2 bg-gradient-to-b from-background to-accent/20">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 md:px-6 py-4 space-y-2 chat-wallpaper">
         {visibleMessages.length === 0 && (
           <div className="text-center text-sm text-muted-foreground py-10">No messages yet — say hi!</div>
         )}
@@ -546,7 +546,9 @@ function ChatView() {
                     onTouchMove={() => { if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current); }}
                     className={cn(
                       "max-w-[78%] md:max-w-[60%] px-3.5 py-2 rounded-2xl text-[15px] leading-relaxed shadow-sm cursor-pointer select-none",
-                      mine ? "bg-bubble-out text-bubble-out-foreground rounded-br-md" : "bg-bubble-in text-bubble-in-foreground rounded-bl-md",
+                      mine
+                        ? "bg-bubble-out text-bubble-out-foreground rounded-br-md bubble-shadow-out"
+                        : "bg-bubble-in text-bubble-in-foreground rounded-bl-md bubble-shadow-in",
                       isOpen && "ring-2 ring-primary/40",
                     )}
                   >
