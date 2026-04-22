@@ -81,7 +81,6 @@ function ChatsLayout() {
   const { isOnline } = usePresence();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
-  const [tab, setTab] = useState<"chats" | "friends">("chats");
   const [topTab, setTopTab] = useState<"chats" | "status" | "calls">("chats");
   const [fabOpen, setFabOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
@@ -445,19 +444,15 @@ function ChatsLayout() {
             <span className="font-semibold tracking-tight">Pulse</span>
           </div>
           <div className="flex items-center gap-1">
-            {tab === "chats" && (
-              <>
-                <CreateGroupDialog onCreated={(id) => navigate({ to: "/groups/$groupId", params: { groupId: id } })} />
-                <NewChatDialog
-                  open={newOpen}
-                  onOpenChange={setNewOpen}
-                  onCreated={(id) => {
-                    setNewOpen(false);
-                    navigate({ to: "/chats/$conversationId", params: { conversationId: id } });
-                  }}
-                />
-              </>
-            )}
+            <CreateGroupDialog onCreated={(id) => navigate({ to: "/groups/$groupId", params: { groupId: id } })} />
+            <NewChatDialog
+              open={newOpen}
+              onOpenChange={setNewOpen}
+              onCreated={(id) => {
+                setNewOpen(false);
+                navigate({ to: "/chats/$conversationId", params: { conversationId: id } });
+              }}
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="rounded-full">
