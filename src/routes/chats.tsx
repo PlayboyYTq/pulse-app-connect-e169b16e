@@ -494,7 +494,7 @@ function ChatsLayout() {
           </div>
         </header>
 
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="relative flex-1 flex flex-col min-h-0">
             {topTab === "chats" && (
               <>
             <div className="px-3 py-2">
@@ -596,6 +596,8 @@ function ChatsLayout() {
             {topTab === "calls" && (
               <CallsTab />
             )}
+            {/* Gen tab — always mounted so it stays warm and re-opens instantly */}
+            <GenTab visible={topTab === "gen"} />
         </div>
 
         {/* Bottom tab bar (WhatsApp style) */}
