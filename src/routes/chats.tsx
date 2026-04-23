@@ -605,6 +605,7 @@ function ChatsLayout() {
           {([
             { key: "chats", label: "Chats", Icon: MessageSquare, badge: 0 },
             { key: "status", label: "Status", Icon: CircleDot, badge: 0 },
+            { key: "gen", label: "Gen", Icon: Wand2, badge: 0 },
             { key: "calls", label: "Calls", Icon: PhoneCall, badge: missedCount },
           ] as const).map(({ key, label, Icon, badge }) => {
             const active = topTab === key;
