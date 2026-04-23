@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { CheckCircle2, Mail, MessageCircle, Phone, ShieldCheck, Sparkles } from "lucide-react";
+import googleLogo from "@/assets/google.svg?url";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -38,6 +40,7 @@ function AuthPage() {
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [cooldown, setCooldown] = useState(0);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -108,6 +111,41 @@ function AuthPage() {
     }
   };
 
+  const sendBrandedVerification = async (targetEmail: string) => {
+    try {
+      const res = await fetch("/api/send-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: targetEmail }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? "Failed to send verification email");
+      setCooldown(30);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to send verification email");
+      return false;
+    }
+  };
+
+  const handleGoogle = async () => {
+    setGoogleBusy(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/chats`,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? "Google sign-in failed");
+        return;
+      }
+      if (result.redirected) return;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Google sign-in failed");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -130,6 +168,10 @@ function AuthPage() {
         });
         if (error) throw error;
         setPendingVerificationEmail(email.trim());
+        // Sign user out so they MUST verify before continuing
+        await supabase.auth.signOut();
+        // Send our branded verification email immediately
+        await sendBrandedVerification(email.trim());
         setMode("signin");
         setPassword("");
         toast.success("Account created. Check your email to verify your account.");
@@ -200,6 +242,24 @@ function AuthPage() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogle}
+              disabled={googleBusy}
+              className="h-12 w-full rounded-2xl border-border/70 bg-background/80 text-sm font-semibold"
+            >
+              <img src={googleLogo} alt="" className="size-5" aria-hidden />
+              {googleBusy ? "Connecting…" : "Continue with Google"}
+            </Button>
+            <div className="relative my-1">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border/60" />
+              </div>
+              <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+                <span className="bg-card px-2 text-muted-foreground">or with email</span>
+              </div>
+            </div>
             {mode === "signup" && (
               <>
                 <Field label="Full name" htmlFor="name" error={errors.name}>
