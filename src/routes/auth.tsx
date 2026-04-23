@@ -168,6 +168,10 @@ function AuthPage() {
         });
         if (error) throw error;
         setPendingVerificationEmail(email.trim());
+        // Sign user out so they MUST verify before continuing
+        await supabase.auth.signOut();
+        // Send our branded verification email immediately
+        await sendBrandedVerification(email.trim());
         setMode("signin");
         setPassword("");
         toast.success("Account created. Check your email to verify your account.");
