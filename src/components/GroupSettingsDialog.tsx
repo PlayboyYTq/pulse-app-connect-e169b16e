@@ -342,7 +342,7 @@ export function GroupSettingsDialog({
                         {m.role === "member" && <>Member</>}
                       </div>
                     </div>
-                    {canManagePerms && m.role !== "owner" && !isMe && (
+                    {canManageRoles && m.role !== "owner" && !isMe && (
                       <Button
                         size="sm"
                         variant="ghost"
