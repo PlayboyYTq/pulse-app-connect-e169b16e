@@ -51,8 +51,10 @@ function AuthPage() {
   }, [cooldown]);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/chats" });
-  }, [user, loading, navigate]);
+    if (!loading && user) {
+      window.location.replace(POST_LOGIN_REDIRECT);
+    }
+  }, [user, loading]);
 
   useEffect(() => {
     if (!session?.user?.email || session.user.email_confirmed_at) return;
@@ -134,13 +136,15 @@ function AuthPage() {
     setGoogleBusy(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/chats`,
+        redirect_uri: POST_LOGIN_REDIRECT,
       });
       if (result.error) {
         toast.error(result.error.message ?? "Google sign-in failed");
         return;
       }
       if (result.redirected) return;
+      // Tokens set successfully — go to external destination
+      window.location.replace(POST_LOGIN_REDIRECT);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
