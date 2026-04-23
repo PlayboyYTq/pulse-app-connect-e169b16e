@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -15,6 +15,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const POST_LOGIN_REDIRECT = "https://mcpee.fun";
+
 type Mode = "signin" | "signup";
 
 type FieldErrors = {
@@ -28,7 +30,6 @@ type FieldErrors = {
 
 function AuthPage() {
   const { session, user, loading } = useAuth();
-  const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
@@ -49,8 +50,10 @@ function AuthPage() {
   }, [cooldown]);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/chats" });
-  }, [user, loading, navigate]);
+    if (!loading && user) {
+      window.location.replace(POST_LOGIN_REDIRECT);
+    }
+  }, [user, loading]);
 
   useEffect(() => {
     if (!session?.user?.email || session.user.email_confirmed_at) return;
@@ -132,13 +135,15 @@ function AuthPage() {
     setGoogleBusy(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: `${window.location.origin}/chats`,
+        redirect_uri: POST_LOGIN_REDIRECT,
       });
       if (result.error) {
         toast.error(result.error.message ?? "Google sign-in failed");
         return;
       }
       if (result.redirected) return;
+      // Tokens set successfully — go to external destination
+      window.location.replace(POST_LOGIN_REDIRECT);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
@@ -192,6 +197,7 @@ function AuthPage() {
       }
 
       toast.success("Signed in");
+      window.location.replace(POST_LOGIN_REDIRECT);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       const normalized = /email.*confirm/i.test(msg) ? "Verify your email before signing in." : msg;
