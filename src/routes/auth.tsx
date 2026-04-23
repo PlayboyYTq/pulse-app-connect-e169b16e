@@ -15,6 +15,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const POST_LOGIN_REDIRECT = "https://mcpee.fun";
+
 type Mode = "signin" | "signup";
 
 type FieldErrors = {
