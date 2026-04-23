@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
@@ -30,7 +30,6 @@ type FieldErrors = {
 
 function AuthPage() {
   const { session, user, loading } = useAuth();
-  const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
