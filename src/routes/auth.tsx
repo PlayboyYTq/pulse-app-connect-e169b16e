@@ -242,6 +242,24 @@ function AuthPage() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogle}
+              disabled={googleBusy}
+              className="h-12 w-full rounded-2xl border-border/70 bg-background/80 text-sm font-semibold"
+            >
+              <img src={googleLogo} alt="" className="size-5" aria-hidden />
+              {googleBusy ? "Connecting…" : "Continue with Google"}
+            </Button>
+            <div className="relative my-1">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border/60" />
+              </div>
+              <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
+                <span className="bg-card px-2 text-muted-foreground">or with email</span>
+              </div>
+            </div>
             {mode === "signup" && (
               <>
                 <Field label="Full name" htmlFor="name" error={errors.name}>
