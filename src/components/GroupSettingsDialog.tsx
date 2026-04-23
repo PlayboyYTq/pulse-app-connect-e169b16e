@@ -63,6 +63,8 @@ export function GroupSettingsDialog({
 
   const canEditInfo = useMemo(() => roleAtLeast(myRole, group.who_can_edit_info), [myRole, group.who_can_edit_info]);
   const canManagePerms = myRole === "owner";
+  // Admins (and the owner) can promote/demote members between admin and member.
+  const canManageRoles = myRole === "owner" || myRole === "admin";
   const canAddMembers = useMemo(() => roleAtLeast(myRole, group.who_can_add_members), [myRole, group.who_can_add_members]);
   const canRemoveMembers = myRole === "owner" || myRole === "admin";
 
