@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatChatListTime, initials } from "@/lib/format";
-import { MessageCircle, MessageSquare, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles, CircleDot, PhoneCall, X } from "lucide-react";
+import { MessageCircle, MessageSquare, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles, CircleDot, PhoneCall, X, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
@@ -21,6 +21,7 @@ import { usePresence } from "@/lib/presence";
 import { ChatListSkeleton } from "@/components/ChatListSkeleton";
 import { StatusTab } from "@/components/StatusTab";
 import { CallsTab } from "@/components/CallsTab";
+import { GenTab } from "@/components/GenTab";
 
 const MISSED_SEEN_KEY = "pulse:missed-calls-seen:v1";
 
@@ -81,7 +82,7 @@ function ChatsLayout() {
   const { isOnline } = usePresence();
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
-  const [topTab, setTopTab] = useState<"chats" | "status" | "calls">("chats");
+  const [topTab, setTopTab] = useState<"chats" | "status" | "gen" | "calls">("chats");
   const [fabOpen, setFabOpen] = useState(false);
   const [friendsOpen, setFriendsOpen] = useState(false);
   const [chats, setChats] = useState<ChatItem[]>(() => loadChatsCache(undefined));
