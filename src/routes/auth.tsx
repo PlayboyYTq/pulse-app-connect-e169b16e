@@ -198,6 +198,7 @@ function AuthPage() {
       }
 
       toast.success("Signed in");
+      window.location.replace(POST_LOGIN_REDIRECT);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       const normalized = /email.*confirm/i.test(msg) ? "Verify your email before signing in." : msg;
