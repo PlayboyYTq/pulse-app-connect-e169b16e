@@ -596,8 +596,6 @@ function ChatsLayout() {
             {topTab === "calls" && (
               <CallsTab />
             )}
-            {/* Gen tab — always mounted so it stays warm and re-opens instantly */}
-            <GenTab visible={topTab === "gen"} />
         </div>
 
         {/* Bottom tab bar (WhatsApp style) */}
@@ -641,21 +639,27 @@ function ChatsLayout() {
       </aside>
 
       <main className={cn("flex-1 flex flex-col overflow-hidden", showSidebarOnMobile ? "hidden md:flex" : "flex")}>
-        {params.conversationId ? (
-          <Outlet />
-        ) : (
-            <div className="flex-1 grid place-items-center bg-gradient-to-br from-background via-background to-accent/20 px-6">
-             <div className="surface-glass text-center max-w-sm rounded-[2rem] px-8 py-10">
-               <div className="mx-auto mb-4 grid size-16 place-items-center rounded-3xl bg-primary/10 text-primary">
-                <MessageCircle className="size-7" />
+        <div className="relative flex-1 overflow-hidden">
+          <GenTab visible={topTab === "gen"} />
+
+          {topTab !== "gen" && (
+            params.conversationId ? (
+              <Outlet />
+            ) : (
+              <div className="flex-1 grid h-full place-items-center bg-gradient-to-br from-background via-background to-accent/20 px-6">
+                <div className="surface-glass text-center max-w-sm rounded-[2rem] px-8 py-10">
+                  <div className="mx-auto mb-4 grid size-16 place-items-center rounded-3xl bg-primary/10 text-primary">
+                    <MessageCircle className="size-7" />
+                  </div>
+                  <h2 className="text-xl font-semibold tracking-tight">Your messages live here</h2>
+                  <p className="text-sm text-muted-foreground mt-1">Select a conversation or start a new one to begin.</p>
+                </div>
               </div>
-              <h2 className="text-xl font-semibold tracking-tight">Your messages live here</h2>
-              <p className="text-sm text-muted-foreground mt-1">Select a conversation or start a new one to begin.</p>
-            </div>
-          </div>
-        )}
+            )
+          )}
+        </div>
       </main>
-      {!params.conversationId && (
+      {!params.conversationId && topTab === "chats" && (
         <ChatFabStack
           open={fabOpen}
           onToggle={() => setFabOpen((v) => !v)}
