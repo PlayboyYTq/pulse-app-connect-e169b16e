@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { CheckCircle2, Mail, MessageCircle, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import googleLogo from "@/assets/google.svg?url";
+import circleLogo from "@/assets/circle-logo.png";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -218,8 +219,9 @@ function AuthPage() {
           </div>
 
           <div className="text-center">
-            <Link to="/" className="inline-flex items-center gap-2 text-[2rem] font-semibold tracking-tight text-primary">
-              Pulse
+            <Link to="/" className="inline-flex items-center gap-3 text-[2rem] font-semibold tracking-tight text-primary">
+              <img src={circleLogo} alt="Circle" width={40} height={40} className="size-10 rounded-2xl object-contain" />
+              Circle
             </Link>
             <p className="mt-2 text-sm text-muted-foreground">Your intelligent real-time messaging companion</p>
           </div>
@@ -322,7 +324,7 @@ function AuthPage() {
             <div className="mb-8 grid size-28 place-items-center rounded-[2rem] bg-card/80 text-primary shadow-[0_30px_80px_-30px_color-mix(in_oklab,var(--color-primary)_30%,transparent)] backdrop-blur">
               <MessageCircle className="size-14" />
             </div>
-            <h1 className="text-balance text-4xl font-semibold tracking-tight text-primary md:text-5xl">Welcome to Pulse</h1>
+            <h1 className="text-balance text-4xl font-semibold tracking-tight text-primary md:text-5xl">Welcome to Circle</h1>
             <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
               Fast chat, voice and video conversations, and a clean experience that feels solid every time you come back.
             </p>

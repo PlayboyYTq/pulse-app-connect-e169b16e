@@ -117,11 +117,11 @@ self.addEventListener("push", (event: PushEvent) => {
     try {
       payload = event.data.json() as PushPayload;
     } catch {
-      payload = { title: "Pulse", body: event.data.text() };
+      payload = { title: "Circle", body: event.data.text() };
     }
   }
 
-  const title = payload.title || "Pulse";
+  const title = payload.title || "Circle";
   const options: NotificationOptions & { actions?: Array<{ action: string; title: string; icon?: string }> } = {
     body: payload.body || "",
     icon: payload.icon || "/icon-192.png",

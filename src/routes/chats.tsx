@@ -18,6 +18,7 @@ import { playMessageSound } from "@/lib/sound";
 import { ensureNotificationPermission, notifyIfHidden, setTitleBadge } from "@/lib/notifications";
 import { isDesktopDevice } from "@/lib/device";
 import { usePresence } from "@/lib/presence";
+import circleLogo from "@/assets/circle-logo.png";
 import { ChatListSkeleton } from "@/components/ChatListSkeleton";
 import { StatusTab } from "@/components/StatusTab";
 import { CallsTab } from "@/components/CallsTab";

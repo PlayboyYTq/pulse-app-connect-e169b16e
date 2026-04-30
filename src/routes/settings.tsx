@@ -28,7 +28,7 @@ function SettingsPage() {
   const onUpdateApp = async () => {
     if (updating) return;
     setUpdating(true);
-    toast.success("Updating Pulse to the latest version…");
+    toast.success("Updating Circle to the latest version…");
     await forceUpdateApp();
   };
 
@@ -72,7 +72,7 @@ function SettingsPage() {
 
         <Card className="p-6 md:p-8">
           <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-          <p className="text-sm text-muted-foreground mt-1">Customize Pulse to your preference.</p>
+          <p className="text-sm text-muted-foreground mt-1">Customize Circle to your preference.</p>
         </Card>
 
         <Card className="p-6 md:p-8 border-primary/30 bg-primary/5">
@@ -80,7 +80,7 @@ function SettingsPage() {
             <RefreshCw className={`size-5 text-primary ${updating ? "animate-spin" : ""}`} /> App version
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Not seeing new features? Force-refresh Pulse to download the latest version.
+            Not seeing new features? Force-refresh Circle to download the latest version.
           </p>
           <div className="mt-5">
             <Button onClick={onUpdateApp} disabled={updating} className="rounded-xl">
@@ -94,7 +94,7 @@ function SettingsPage() {
           <h2 className="text-lg font-semibold tracking-tight inline-flex items-center gap-2">
             <Bell className="size-5 text-primary" /> Notifications
           </h2>
-          <p className="text-sm text-muted-foreground mt-1">Get a system notification when a new message arrives while Pulse is in the background.</p>
+          <p className="text-sm text-muted-foreground mt-1">Get a system notification when a new message arrives while Circle is in the background.</p>
           <div className="mt-5 flex items-center justify-between gap-4">
             <Label htmlFor="notif" className="text-sm">Enable browser notifications</Label>
             <Switch id="notif" checked={notifEnabled} onCheckedChange={onToggleNotif} />

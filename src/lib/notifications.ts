@@ -71,7 +71,7 @@ function rawNotify(opts: NotifyOpts) {
 }
 
 /** Set browser tab title to include unread count. */
-export function setTitleBadge(count: number, base = "Pulse — Real-time Messaging") {
+export function setTitleBadge(count: number, base = "Circle — Real-time Messaging") {
   if (typeof document === "undefined") return;
   document.title = count > 0 ? `(${count > 99 ? "99+" : count}) ${base}` : base;
 }

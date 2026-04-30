@@ -9,8 +9,8 @@ export const Route = createFileRoute("/download")({
   component: DownloadPage,
   head: () => ({
     meta: [
-      { title: "Install Pulse — Get the App" },
-      { name: "description", content: "Install Pulse on your phone for instant chat, calls, and notifications." },
+      { title: "Install Circle — Get the App" },
+      { name: "description", content: "Install Circle on your phone for instant chat, calls, and notifications." },
     ],
   }),
 });
@@ -27,7 +27,7 @@ function DownloadPage() {
     const t = setTimeout(async () => {
       if (cancelled) return;
       const outcome = await installPWA();
-      if (outcome === "accepted") toast.success("Installing Pulse…");
+      if (outcome === "accepted") toast.success("Installing Circle…");
     }, 400);
     return () => {
       cancelled = true;
@@ -38,7 +38,7 @@ function DownloadPage() {
   const install = async () => {
     const outcome = await installPWA();
     if (outcome === "accepted") {
-      toast.success("Installing Pulse…");
+      toast.success("Installing Circle…");
     } else if (outcome === "unavailable") {
       toast.info("Open the Install page for full instructions.");
       navigate({ to: "/install" });
@@ -53,17 +53,17 @@ function DownloadPage() {
         </Link>
 
         <div className="mt-10 flex flex-col items-center text-center">
-          <img src="/icon-512.png" alt="Pulse" width={120} height={120} className="size-28 rounded-[2rem] shadow-2xl" />
-          <h1 className="mt-6 text-3xl font-bold tracking-tight">Get Pulse</h1>
+          <img src="/icon-512.png" alt="Circle" width={120} height={120} className="size-28 rounded-[2rem] shadow-2xl" />
+          <h1 className="mt-6 text-3xl font-bold tracking-tight">Get Circle</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Install Pulse on your device for instant access, push notifications, and a full app-like experience.
+            Install Circle on your device for instant access, push notifications, and a full app-like experience.
           </p>
 
           <Button onClick={install} size="lg" className="mt-8 h-12 w-full text-base">
             {isInstalled ? (
               <><Smartphone className="size-5 mr-2" /> Already installed</>
             ) : (
-              <><Download className="size-5 mr-2" /> Install Pulse</>
+              <><Download className="size-5 mr-2" /> Install Circle</>
             )}
           </Button>
 
