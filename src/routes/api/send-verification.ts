@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
-const FROM_EMAIL = "Pulse <noreply@mcpee.fun>";
+const FROM_EMAIL = "Circle <noreply@mcpee.fun>";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -12,9 +12,9 @@ function buildHtml(link: string): string {
   return `<!doctype html>
 <html><body style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7fb;padding:32px;margin:0">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px;box-shadow:0 2px 12px rgba(0,0,0,0.05)">
-    <h1 style="margin:0 0 12px;font-size:22px;color:#0f172a">Verify your Pulse account</h1>
+    <h1 style="margin:0 0 12px;font-size:22px;color:#0f172a">Verify your Circle account</h1>
     <p style="color:#475569;font-size:15px;line-height:1.5;margin:0 0 24px">
-      Tap the button below to confirm your email address and start using Pulse.
+      Tap the button below to confirm your email address and start using Circle.
     </p>
     <a href="${link}" style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:10px;font-weight:600;font-size:15px">Verify email</a>
     <p style="color:#94a3b8;font-size:12px;margin:28px 0 0">If you didn't create an account, you can safely ignore this email.</p>
@@ -61,7 +61,7 @@ export const Route = createFileRoute("/api/send-verification")({
             body: JSON.stringify({
               from: FROM_EMAIL,
               to: [email],
-              subject: "Verify your Pulse account",
+              subject: "Verify your Circle account",
               html: buildHtml(actionLink),
             }),
           });

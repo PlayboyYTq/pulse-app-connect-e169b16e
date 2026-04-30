@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-// Capacitor config for building Pulse as a native Android (and iOS) app.
+// Capacitor config for building Circle as a native Android (and iOS) app.
 // The WebView loads the published PWA, so the web app stays the source of truth.
 //
 // Quick start:
@@ -16,8 +16,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const PUBLISHED_URL = "https://pulse-app-connect.lovable.app";
 
 const config: CapacitorConfig = {
-  appId: "app.lovable.pulse",
-  appName: "Pulse",
+  appId: "app.lovable.circle",
+  appName: "Circle",
   webDir: "dist",
   // Loads the hosted PWA inside the WebView (hot-reload to your live deploy).
   // Comment out the `server` block to ship a fully bundled offline-capable app.
@@ -33,7 +33,7 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: false,
     minWebViewVersion: 55,
     overrideUserAgent: undefined,
-    appendUserAgent: "PulseAndroid/1.0",
+    appendUserAgent: "CircleAndroid/1.0",
     backgroundColor: "#0F172A",
   },
   ios: {
@@ -41,7 +41,7 @@ const config: CapacitorConfig = {
     backgroundColor: "#0F172A",
     limitsNavigationsToAppBoundDomains: false,
     scrollEnabled: true,
-    appendUserAgent: "PulseiOS/1.0",
+    appendUserAgent: "CircleiOS/1.0",
   },
   plugins: {
     SplashScreen: {

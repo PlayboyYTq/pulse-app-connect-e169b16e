@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/askify")({
                 {
                   role: "system",
                   content:
-                    "You are Askify AI, a friendly, concise assistant inside the Pulse messaging app. Keep replies clear and helpful. Use markdown sparingly.",
+                    "You are Askify AI, a friendly, concise assistant inside the Circle messaging app. Keep replies clear and helpful. Use markdown sparingly.",
                 },
                 ...messages,
               ],

@@ -11,8 +11,8 @@ export const Route = createFileRoute("/install")({
   component: InstallPage,
   head: () => ({
     meta: [
-      { title: "Install Pulse — Add to your phone" },
-      { name: "description", content: "Install Pulse on Android, iOS, or desktop. Enable push notifications, camera, and microphone for the full experience." },
+      { title: "Install Circle — Add to your phone" },
+      { name: "description", content: "Install Circle on Android, iOS, or desktop. Enable push notifications, camera, and microphone for the full experience." },
     ],
   }),
 });
@@ -27,8 +27,8 @@ function InstallPage() {
 
   const install = async () => {
     const outcome = await installPWA();
-    if (outcome === "accepted") toast.success("Installing Pulse…");
-    else if (outcome === "unavailable") toast.info("Open Pulse in Chrome on Android (or use the share menu on iOS) to install.");
+    if (outcome === "accepted") toast.success("Installing Circle…");
+    else if (outcome === "unavailable") toast.info("Open Circle in Chrome on Android (or use the share menu on iOS) to install.");
   };
 
   const requestPerms = async () => {
@@ -63,14 +63,14 @@ function InstallPage() {
         </Link>
 
         <header className="mt-6 flex flex-col items-center text-center">
-          <img src="/icon-512.png" alt="Pulse app icon" width={96} height={96} className="size-24 rounded-3xl shadow-xl" />
-          <h1 className="mt-5 text-3xl sm:text-4xl font-bold tracking-tight">Install Pulse</h1>
+          <img src="/icon-512.png" alt="Circle app icon" width={96} height={96} className="size-24 rounded-3xl shadow-xl" />
+          <h1 className="mt-5 text-3xl sm:text-4xl font-bold tracking-tight">Install Circle</h1>
           <p className="mt-2 max-w-lg text-sm sm:text-base text-muted-foreground">
-            Add Pulse to your home screen for instant access, push notifications, and a full-screen, app-like experience.
+            Add Circle to your home screen for instant access, push notifications, and a full-screen, app-like experience.
           </p>
           {isInstalled && (
             <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-              <Check className="size-4" /> Pulse is installed on this device
+              <Check className="size-4" /> Circle is installed on this device
             </div>
           )}
         </header>
@@ -100,7 +100,7 @@ function InstallPage() {
               {platform === "ios" && <span className="ml-auto text-xs font-semibold text-primary">Detected</span>}
             </div>
             <ol className="mt-2 space-y-2 text-sm text-muted-foreground">
-              <li className="flex gap-2"><span className="font-semibold text-foreground">1.</span> Open Pulse in <strong className="text-foreground">Safari</strong>.</li>
+              <li className="flex gap-2"><span className="font-semibold text-foreground">1.</span> Open Circle in <strong className="text-foreground">Safari</strong>.</li>
               <li className="flex gap-2"><span className="font-semibold text-foreground">2.</span> Tap the <Share2 className="inline size-4" /> Share button.</li>
               <li className="flex gap-2"><span className="font-semibold text-foreground">3.</span> Choose <strong className="text-foreground">Add to Home Screen</strong>.</li>
             </ol>

@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/push/send")({
         const anonKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
-        const vapidSubject = process.env.VAPID_SUBJECT || "mailto:support@pulse.app";
+        const vapidSubject = process.env.VAPID_SUBJECT || "mailto:support@mcpee.fun";
 
         if (!supabaseUrl || !anonKey || !serviceKey || !vapidPrivate) {
           return jsonResponse({ error: "Server not configured" }, 500);
