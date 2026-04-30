@@ -439,10 +439,8 @@ function ChatsLayout() {
       >
         <header className="px-4 py-3 flex items-center justify-between border-b border-border/70">
           <div className="flex items-center gap-2">
-            <div className="size-9 rounded-2xl bg-primary text-primary-foreground grid place-items-center shadow shadow-primary/20">
-              <MessageCircle className="size-4" />
-            </div>
-            <span className="font-semibold tracking-tight">Pulse</span>
+            <img src={circleLogo} alt="Circle" width={36} height={36} className="size-9 rounded-2xl object-contain" />
+            <span className="font-semibold tracking-tight">Circle</span>
           </div>
           <div className="flex items-center gap-1">
             <CreateGroupDialog onCreated={(id) => navigate({ to: "/groups/$groupId", params: { groupId: id } })} />

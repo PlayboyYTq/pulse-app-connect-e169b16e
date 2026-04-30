@@ -1,6 +1,6 @@
 {
-  "name": "Pulse — Real-time Messaging",
-  "short_name": "Pulse",
+  "name": "Circle — Real-time Messaging",
+  "short_name": "Circle",
   "description": "Modern minimal real-time chat. Sign up, find friends, and message instantly.",
   "id": "/?source=pwa",
   "start_url": "/chats?source=pwa",
