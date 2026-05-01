@@ -53,6 +53,13 @@ export const Route = createFileRoute("/api/send-verification")({
               return Response.json({ error: createErr?.message ?? "Could not create account" }, { status: 400 });
             }
             userId = userData.user.id;
+            await supabaseAdmin.from("profiles").upsert({
+              id: userId,
+              name: name?.trim() || normalizedEmail.split("@")[0] || "User",
+              date_of_birth: dob || null,
+              phone: phone?.trim() || null,
+              email: normalizedEmail,
+            });
           } else {
             const { data: usersData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
             if (listErr) return Response.json({ error: listErr.message }, { status: 400 });
