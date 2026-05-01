@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { createEmailVerificationToken } from "@/lib/emailVerification.server";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
 const FROM_EMAIL = "Circle <noreply@mcpee.fun>";
+const APP_URL = "https://mcpee.fun";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -27,7 +29,7 @@ export const Route = createFileRoute("/api/send-verification")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const { email } = (await request.json()) as { email?: string };
+          const { email, name, dob, phone, password } = (await request.json()) as { email?: string; name?: string; dob?: string; phone?: string; password?: string };
           if (!email || !isValidEmail(email)) {
             return Response.json({ error: "Invalid email" }, { status: 400 });
           }
@@ -37,19 +39,30 @@ export const Route = createFileRoute("/api/send-verification")({
           if (!LOVABLE_API_KEY) return Response.json({ error: "LOVABLE_API_KEY missing" }, { status: 500 });
           if (!RESEND_API_KEY) return Response.json({ error: "RESEND_API_KEY missing" }, { status: 500 });
 
-          // Generate a Supabase signup verification link via admin
-          const origin = new URL(request.url).origin;
-          const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-            type: "magiclink",
-            email,
-            options: { redirectTo: `${origin}/auth` },
-          });
+          const normalizedEmail = email.trim().toLowerCase();
+          let userId = "";
 
-          if (linkErr || !linkData?.properties?.action_link) {
-            return Response.json({ error: linkErr?.message ?? "Could not generate link" }, { status: 400 });
+          if (password) {
+            const { data: userData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+              email: normalizedEmail,
+              password,
+              email_confirm: false,
+              user_metadata: { name: name?.trim(), date_of_birth: dob, phone: phone?.trim() },
+            });
+            if (createErr || !userData.user) {
+              return Response.json({ error: createErr?.message ?? "Could not create account" }, { status: 400 });
+            }
+            userId = userData.user.id;
+          } else {
+            const { data: usersData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+            if (listErr) return Response.json({ error: listErr.message }, { status: 400 });
+            const existing = usersData.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+            if (!existing) return Response.json({ error: "Create an account before requesting verification." }, { status: 404 });
+            if (existing.email_confirmed_at) return Response.json({ success: true, alreadyVerified: true });
+            userId = existing.id;
           }
 
-          const actionLink = linkData.properties.action_link;
+          const actionLink = `${APP_URL}/api/verify-email?token=${encodeURIComponent(createEmailVerificationToken(userId, normalizedEmail))}`;
 
           const resp = await fetch(`${GATEWAY_URL}/emails`, {
             method: "POST",
@@ -60,7 +73,7 @@ export const Route = createFileRoute("/api/send-verification")({
             },
             body: JSON.stringify({
               from: FROM_EMAIL,
-              to: [email],
+              to: [normalizedEmail],
               subject: "Verify your Circle account",
               html: buildHtml(actionLink),
             }),
