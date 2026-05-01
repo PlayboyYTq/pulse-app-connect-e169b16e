@@ -6,21 +6,37 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  cloudflare: process.env.VERCEL ? false : undefined,
+  tanstackStart: {
+    spa: {
+      enabled: true,
+      maskPath: "/",
+      prerender: { outputPath: "/index" },
+    },
+  },
   vite: {
+    build: {
+      outDir: "dist",
+      emptyOutDir: true,
+    },
+    environments: {
+      client: {
+        build: { outDir: "dist" },
+      },
+      ssr: {
+        build: { outDir: ".output/server" },
+      },
+    },
     plugins: [
       VitePWA({
-        // injectManifest lets us write our own SW (push + offline + custom logic)
-        // while still getting Workbox precaching of the build assets.
         strategies: "injectManifest",
         srcDir: "src",
         filename: "sw.ts",
         registerType: "autoUpdate",
-        // CRITICAL: never enable in dev (Lovable preview iframe)
         devOptions: { enabled: false },
-        injectRegister: false, // we register manually with iframe/preview guards
-        manifest: false, // we ship our own public/manifest.webmanifest
+        injectRegister: false,
+        manifest: false,
         injectManifest: {
-          // Don't try to precache server bundles
           globPatterns: ["**/*.{js,css,html,svg,png,ico,webp,woff2}"],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         },
