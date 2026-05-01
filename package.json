@@ -69,7 +69,7 @@
     "tailwindcss": "^4.2.1",
     "tw-animate-css": "^1.3.4",
     "vaul": "^1.1.2",
-    "vite-plugin-pwa": "^0.21.0",
+    "vite-plugin-pwa": "^1.2.0",
     "vite-tsconfig-paths": "^6.0.2",
     "web-push": "^3.6.7",
     "workbox-cacheable-response": "^7.3.0",

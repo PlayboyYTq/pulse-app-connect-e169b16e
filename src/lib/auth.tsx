@@ -41,6 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const applySession = (nextSession: Session | null) => {
       if (!active) return;
+      // Hard guard: never accept an unverified email/password session.
+      // OAuth (Google/Apple) and phone sessions are allowed through.
+      if (nextSession?.user) {
+        const u = nextSession.user;
+        const isOAuth = (u.app_metadata?.provider && u.app_metadata.provider !== "email") ||
+          (Array.isArray(u.identities) && u.identities.some((i) => i.provider !== "email"));
+        const isPhone = !!u.phone_confirmed_at;
+        if (!u.email_confirmed_at && !isOAuth && !isPhone) {
+          // Sign out silently and treat as logged-out
+          void supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+      }
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
 
