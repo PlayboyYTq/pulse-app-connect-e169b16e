@@ -43,16 +43,29 @@ export const Route = createFileRoute("/api/send-verification")({
           let userId = "";
 
           if (password) {
+            const userMetadata = { name: name?.trim(), date_of_birth: dob, phone: phone?.trim() };
             const { data: userData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
               email: normalizedEmail,
               password,
               email_confirm: false,
-              user_metadata: { name: name?.trim(), date_of_birth: dob, phone: phone?.trim() },
+              user_metadata: userMetadata,
             });
             if (createErr || !userData.user) {
-              return Response.json({ error: createErr?.message ?? "Could not create account" }, { status: 400 });
+              const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+              const existing = usersData?.users.find((user) => user.email?.toLowerCase() === normalizedEmail);
+              if (!existing || existing.email_confirmed_at) {
+                return Response.json({ error: createErr?.message ?? "Could not create account" }, { status: 400 });
+              }
+              const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+                password,
+                email_confirm: false,
+                user_metadata: userMetadata,
+              });
+              if (updateErr) return Response.json({ error: updateErr.message }, { status: 400 });
+              userId = existing.id;
+            } else {
+              userId = userData.user.id;
             }
-            userId = userData.user.id;
             await supabaseAdmin.from("profiles").upsert({
               id: userId,
               name: name?.trim() || normalizedEmail.split("@")[0] || "User",
