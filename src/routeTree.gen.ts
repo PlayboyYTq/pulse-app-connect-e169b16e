@@ -19,6 +19,7 @@ import { Route as AskifyRouteImport } from './routes/askify'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GroupsGroupIdRouteImport } from './routes/groups.$groupId'
 import { Route as ChatsConversationIdRouteImport } from './routes/chats.$conversationId'
+import { Route as ApiVerifyEmailRouteImport } from './routes/api/verify-email'
 import { Route as ApiSendVerificationRouteImport } from './routes/api/send-verification'
 import { Route as ApiDeleteAccountRouteImport } from './routes/api/delete-account'
 import { Route as ApiAskifyRouteImport } from './routes/api/askify'
@@ -74,6 +75,11 @@ const ChatsConversationIdRoute = ChatsConversationIdRouteImport.update({
   path: '/$conversationId',
   getParentRoute: () => ChatsRoute,
 } as any)
+const ApiVerifyEmailRoute = ApiVerifyEmailRouteImport.update({
+  id: '/api/verify-email',
+  path: '/api/verify-email',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSendVerificationRoute = ApiSendVerificationRouteImport.update({
   id: '/api/send-verification',
   path: '/api/send-verification',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
   '/api/send-verification': typeof ApiSendVerificationRoute
+  '/api/verify-email': typeof ApiVerifyEmailRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
   '/api/send-verification': typeof ApiSendVerificationRoute
+  '/api/verify-email': typeof ApiVerifyEmailRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -140,6 +148,7 @@ export interface FileRoutesById {
   '/api/askify': typeof ApiAskifyRoute
   '/api/delete-account': typeof ApiDeleteAccountRoute
   '/api/send-verification': typeof ApiSendVerificationRoute
+  '/api/verify-email': typeof ApiVerifyEmailRoute
   '/chats/$conversationId': typeof ChatsConversationIdRoute
   '/groups/$groupId': typeof GroupsGroupIdRoute
   '/api/push/send': typeof ApiPushSendRoute
@@ -158,6 +167,7 @@ export interface FileRouteTypes {
     | '/api/askify'
     | '/api/delete-account'
     | '/api/send-verification'
+    | '/api/verify-email'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/api/askify'
     | '/api/delete-account'
     | '/api/send-verification'
+    | '/api/verify-email'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/api/askify'
     | '/api/delete-account'
     | '/api/send-verification'
+    | '/api/verify-email'
     | '/chats/$conversationId'
     | '/groups/$groupId'
     | '/api/push/send'
@@ -207,6 +219,7 @@ export interface RootRouteChildren {
   ApiAskifyRoute: typeof ApiAskifyRoute
   ApiDeleteAccountRoute: typeof ApiDeleteAccountRoute
   ApiSendVerificationRoute: typeof ApiSendVerificationRoute
+  ApiVerifyEmailRoute: typeof ApiVerifyEmailRoute
   GroupsGroupIdRoute: typeof GroupsGroupIdRoute
   ApiPushSendRoute: typeof ApiPushSendRoute
 }
@@ -283,6 +296,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatsConversationIdRouteImport
       parentRoute: typeof ChatsRoute
     }
+    '/api/verify-email': {
+      id: '/api/verify-email'
+      path: '/api/verify-email'
+      fullPath: '/api/verify-email'
+      preLoaderRoute: typeof ApiVerifyEmailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/send-verification': {
       id: '/api/send-verification'
       path: '/api/send-verification'
@@ -336,9 +356,19 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAskifyRoute: ApiAskifyRoute,
   ApiDeleteAccountRoute: ApiDeleteAccountRoute,
   ApiSendVerificationRoute: ApiSendVerificationRoute,
+  ApiVerifyEmailRoute: ApiVerifyEmailRoute,
   GroupsGroupIdRoute: GroupsGroupIdRoute,
   ApiPushSendRoute: ApiPushSendRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
