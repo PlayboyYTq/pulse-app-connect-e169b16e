@@ -51,6 +51,13 @@ function AuthPage() {
   }, [cooldown]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("verified") === "1") toast.success("Email verified. You can now sign in.");
+    const verificationError = params.get("verification_error");
+    if (verificationError) toast.error(verificationError);
+  }, []);
+
+  useEffect(() => {
     if (!loading && user) {
       window.location.replace(POST_LOGIN_REDIRECT);
     }
@@ -115,12 +122,12 @@ function AuthPage() {
     }
   };
 
-  const sendBrandedVerification = async (targetEmail: string) => {
+  const sendBrandedVerification = async (targetEmail: string, payload?: { name: string; dob: string; phone: string; password: string }) => {
     try {
       const res = await fetch("/api/send-verification", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: targetEmail }),
+        body: JSON.stringify({ email: targetEmail, ...payload }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? "Failed to send verification email");
@@ -160,24 +167,15 @@ function AuthPage() {
 
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email: email.trim(),
+        const sent = await sendBrandedVerification(email.trim(), {
+          name: name.trim(),
+          dob,
+          phone: phone.trim(),
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/auth`,
-            data: {
-              name: name.trim(),
-              date_of_birth: dob,
-              phone: phone.trim(),
-            },
-          },
         });
-        if (error) throw error;
+        if (!sent) return;
         setPendingVerificationEmail(email.trim());
-        // Sign user out so they MUST verify before continuing
         await supabase.auth.signOut();
-        // Send our branded verification email immediately
-        await sendBrandedVerification(email.trim());
         setMode("signin");
         setPassword("");
         toast.success("Account created. Check your email to verify your account.");
