@@ -1,9 +1,12 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { nitro } from "nitro/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  cloudflare: process.env.VERCEL ? false : undefined,
   vite: {
     plugins: [
+      ...(process.env.VERCEL ? nitro({ preset: "vercel" }) : []),
       VitePWA({
         strategies: "injectManifest",
         srcDir: "src",
