@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Clipboard, Loader2, RefreshCw, Send, Sparkles, Wand2 } from "lucide-react";
@@ -128,18 +128,6 @@ export function GenTab({ visible }: { visible: boolean }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function Feature({ icon, title, desc }: { icon: ReactNode; title: string; desc: string }) {
-  return (
-    <div className="rounded-2xl border border-border/70 bg-card/60 p-4 text-center">
-      <div className="mx-auto size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2">
-        {icon}
-      </div>
-      <div className="text-sm font-semibold">{title}</div>
-      <div className="text-xs text-muted-foreground">{desc}</div>
     </div>
   );
 }
