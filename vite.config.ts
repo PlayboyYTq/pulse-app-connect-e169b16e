@@ -1,7 +1,13 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Disable Cloudflare Worker build when deploying to Node hosts (Railway, etc.)
+// Set DEPLOY_TARGET=node in Railway env vars. Locally / in Lovable sandbox the
+// default Cloudflare build is preserved so server functions keep working there.
+const isNodeTarget = process.env.DEPLOY_TARGET === "node";
+
 export default defineConfig({
+  cloudflare: isNodeTarget ? false : undefined,
   vite: {
     plugins: [
       VitePWA({
