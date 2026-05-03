@@ -8,15 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { CheckCircle2, Mail, MessageCircle, Phone, ShieldCheck, Sparkles } from "lucide-react";
+import { CheckCircle2, Mail, Phone, ShieldCheck, Sparkles } from "lucide-react";
 import googleLogo from "@/assets/google.svg?url";
 import circleLogo from "@/assets/circle-logo.png";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
-
-const POST_LOGIN_REDIRECT = "https://mcpee.fun";
 
 type Mode = "signin" | "signup";
 
@@ -59,7 +57,7 @@ function AuthPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      window.location.replace(POST_LOGIN_REDIRECT);
+      window.location.assign("/chats");
     }
   }, [user, loading]);
 
@@ -143,15 +141,14 @@ function AuthPage() {
     setGoogleBusy(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: POST_LOGIN_REDIRECT,
+        redirect_uri: `${window.location.origin}/chats`,
       });
       if (result.error) {
         toast.error(result.error.message ?? "Google sign-in failed");
         return;
       }
       if (result.redirected) return;
-      // Tokens set successfully — go to external destination
-      window.location.replace(POST_LOGIN_REDIRECT);
+      window.location.assign("/chats");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
@@ -196,7 +193,7 @@ function AuthPage() {
       }
 
       toast.success("Signed in");
-      window.location.replace(POST_LOGIN_REDIRECT);
+      window.location.assign("/chats");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong";
       const normalized = /email.*confirm/i.test(msg) ? "Verify your email before signing in." : msg;
@@ -212,8 +209,8 @@ function AuthPage() {
     <div className="min-h-dvh bg-background px-4 py-6 md:px-6 md:py-8">
       <div className="mx-auto grid min-h-[calc(100dvh-3rem)] max-w-6xl items-center gap-6 lg:grid-cols-[0.9fr_1.1fr]">
         <Card className="surface-glass order-2 rounded-[2rem] border-border/70 p-5 shadow-none md:p-7 lg:order-1">
-          <div className="mx-auto mb-5 grid size-18 place-items-center rounded-[1.6rem] bg-[linear-gradient(135deg,color-mix(in_oklab,var(--color-primary)_90%,white_10%),color-mix(in_oklab,var(--color-accent)_80%,var(--color-primary)_20%))] text-primary-foreground shadow-[0_18px_40px_-24px_color-mix(in_oklab,var(--color-primary)_60%,transparent)]">
-            <MessageCircle className="size-8" />
+          <div className="mx-auto mb-5 grid size-18 place-items-center">
+            <img src={circleLogo} alt="Circle" className="size-16 object-contain drop-shadow-[0_18px_40px_color-mix(in_oklab,var(--color-primary)_30%,transparent)]" />
           </div>
 
           <div className="text-center">
@@ -319,8 +316,8 @@ function AuthPage() {
         <section className="surface-panel relative order-1 hidden overflow-hidden rounded-[2rem] p-8 text-center lg:order-2 lg:flex lg:min-h-[720px] lg:p-10">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_24%,color-mix(in_oklab,var(--color-primary)_18%,white_82%),transparent_22%),radial-gradient(circle_at_62%_46%,color-mix(in_oklab,var(--color-accent)_42%,white_58%),transparent_28%),linear-gradient(180deg,color-mix(in_oklab,white_72%,var(--color-accent)_28%),color-mix(in_oklab,white_88%,var(--color-background)_12%))]" />
           <div className="relative flex h-full flex-col items-center justify-center">
-            <div className="mb-8 grid size-28 place-items-center rounded-[2rem] bg-card/80 text-primary shadow-[0_30px_80px_-30px_color-mix(in_oklab,var(--color-primary)_30%,transparent)] backdrop-blur">
-              <MessageCircle className="size-14" />
+            <div className="mb-8 grid size-28 place-items-center rounded-[2rem] bg-card/80 shadow-[0_30px_80px_-30px_color-mix(in_oklab,var(--color-primary)_30%,transparent)] backdrop-blur">
+              <img src={circleLogo} alt="Circle" className="size-20 object-contain" />
             </div>
             <h1 className="text-balance text-4xl font-semibold tracking-tight text-primary md:text-5xl">Welcome to Circle</h1>
             <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
