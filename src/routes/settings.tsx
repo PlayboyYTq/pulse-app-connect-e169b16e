@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { Card } from "@/components/ui/card";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import {
-  ArrowLeft, Bell, Moon, UserCog, ShieldOff, RefreshCw, Search,
+  ArrowLeft, Bell, RefreshCw, Search,
   KeyRound, Lock, ListChecks, MessageSquare, Database, Accessibility,
   Globe, HelpCircle, Smartphone, UserPlus, ChevronRight, QrCode, Plus,
 } from "lucide-react";
