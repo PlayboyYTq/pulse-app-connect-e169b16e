@@ -7,8 +7,6 @@
     "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "build:node": "cross-env DEPLOY_TARGET=node vite build",
-    "start": "cross-env DEPLOY_TARGET=node node server.js",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write ."
