@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatChatListTime, initials } from "@/lib/format";
-import { MessageCircle, MessageSquare, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles, CircleDot, PhoneCall, X, Wand2 } from "lucide-react";
+import { MessageSquare, Plus, Search, LogOut, User as UserIcon, ArrowLeft, Users, Download, Smartphone, Settings as SettingsIcon, Sparkles, CircleDot, PhoneCall, X, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { FriendsPanel } from "@/components/FriendsPanel";
@@ -532,8 +532,8 @@ function ChatsLayout() {
               )}
               {filtered.length === 0 && chatsLoaded && (
                 <div className="px-6 py-16 text-center">
-                  <div className="mx-auto size-12 rounded-2xl bg-accent grid place-items-center mb-3">
-                    <MessageCircle className="size-5 text-accent-foreground" />
+                  <div className="mx-auto size-12 grid place-items-center mb-3">
+                    <img src={circleLogo} alt="Circle" className="size-10 object-contain" />
                   </div>
                   <p className="text-sm text-muted-foreground">No conversations yet.<br />Add a friend, then tap + to start.</p>
                 </div>
@@ -647,8 +647,8 @@ function ChatsLayout() {
             ) : (
               <div className="flex-1 grid h-full place-items-center bg-gradient-to-br from-background via-background to-accent/20 px-6">
                 <div className="surface-glass text-center max-w-sm rounded-[2rem] px-8 py-10">
-                  <div className="mx-auto mb-4 grid size-16 place-items-center rounded-3xl bg-primary/10 text-primary">
-                    <MessageCircle className="size-7" />
+                  <div className="mx-auto mb-4 grid size-16 place-items-center">
+                    <img src={circleLogo} alt="Circle" className="size-14 object-contain" />
                   </div>
                   <h2 className="text-xl font-semibold tracking-tight">Your messages live here</h2>
                   <p className="text-sm text-muted-foreground mt-1">Select a conversation or start a new one to begin.</p>
