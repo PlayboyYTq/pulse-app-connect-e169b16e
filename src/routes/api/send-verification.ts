@@ -3,8 +3,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { createEmailVerificationToken } from "@/lib/emailVerification.server";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
-const FROM_EMAIL = "Circle <noreply@mcpee.fun>";
-const APP_URL = "https://mcpee.fun";
+const FROM_EMAIL = process.env.VERIFICATION_FROM_EMAIL || "Circle <onboarding@resend.dev>";
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -82,7 +81,8 @@ export const Route = createFileRoute("/api/send-verification")({
             userId = existing.id;
           }
 
-          const actionLink = `${APP_URL}/api/verify-email?token=${encodeURIComponent(createEmailVerificationToken(userId, normalizedEmail))}`;
+          const origin = new URL(request.url).origin;
+          const actionLink = `${origin}/api/verify-email?token=${encodeURIComponent(createEmailVerificationToken(userId, normalizedEmail))}`;
 
           const resp = await fetch(`${GATEWAY_URL}/emails`, {
             method: "POST",
